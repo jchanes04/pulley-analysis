@@ -121,51 +121,55 @@ workspace.onclick = (event: MouseEvent) => {
             } else if (mode === 's') { //first node has been placed (and is on empty space), now placing the second node of rope segment
                 workspace.removeEventListener("mousemove", ropeSegmentScalingFunction)
                 scalingHtmlElement.remove()
-                if (clickedOnNode) { // second node is on an existing node
-                    let newSegment = new RopeSegment({
-                        startX: firstClickPos.x,
-                        startY: firstClickPos.y,
-                        endNode: <ObjectNode>globalIDList[targetNodeID!]
-                    })
-                    setID(newSegment)
-                    setID(newSegment.startNode)
-                    connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
-                    console.dir(connectionList)
-                } else { //second node is on empty space
-                    let newSegment = new RopeSegment({
-                        startX: firstClickPos.x,
-                        startY: firstClickPos.y,
-                        endX: pos.x,
-                        endY: pos.y
-                    })
-                    setID(newSegment)
-                    setID(newSegment.startNode)
-                    setID(newSegment.endNode)
-                    connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
-                    console.dir(connectionList)
+                if (firstClickPos.x !== pos.x || firstClickPos.y !== pos.y) {
+                    if (clickedOnNode) { // second node is on an existing node
+                        let newSegment = new RopeSegment({
+                            startX: firstClickPos.x,
+                            startY: firstClickPos.y,
+                            endNode: <ObjectNode>globalIDList[targetNodeID!]
+                        })
+                        setID(newSegment)
+                        setID(newSegment.startNode)
+                        connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
+                        console.dir(connectionList)
+                    } else { //second node is on empty space
+                        let newSegment = new RopeSegment({
+                            startX: firstClickPos.x,
+                            startY: firstClickPos.y,
+                            endX: pos.x,
+                            endY: pos.y
+                        })
+                        setID(newSegment)
+                        setID(newSegment.startNode)
+                        setID(newSegment.endNode)
+                        connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
+                        console.dir(connectionList)
+                    }
                 }
                 mode = 'a'
             } else if (mode === 'n') { // first node has been placed (and is on a preexisting node), now placing second node of rope segment
                 workspace.removeEventListener("mousemove", ropeSegmentScalingFunction)
                 scalingHtmlElement.remove()
-                if (clickedOnNode) { // second node is on existing node
-                    let newSegment = new RopeSegment({
-                        startNode: firstClickNode,
-                        endNode: <ObjectNode>globalIDList[targetNodeID!]
-                    })
-                    setID(newSegment)
-                    connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
-                    console.dir(connectionList)
-                } else { // second node is on empty space
-                    let newSegment = new RopeSegment({
-                        endX: pos.x,
-                        endY: pos.y,
-                        startNode: firstClickNode
-                    })
-                    setID(newSegment)
-                    setID(newSegment.endNode)
-                    connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
-                    console.dir(connectionList)
+                if (firstClickPos.x !== pos.x || firstClickPos.y !== pos.y) {
+                    if (clickedOnNode) { // second node is on existing node
+                        let newSegment = new RopeSegment({
+                            startNode: firstClickNode,
+                            endNode: <ObjectNode>globalIDList[targetNodeID!]
+                        })
+                        setID(newSegment)
+                        connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
+                        console.dir(connectionList)
+                    } else { // second node is on empty space
+                        let newSegment = new RopeSegment({
+                            endX: pos.x,
+                            endY: pos.y,
+                            startNode: firstClickNode
+                        })
+                        setID(newSegment)
+                        setID(newSegment.endNode)
+                        connectionList.push({upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode)})
+                        console.dir(connectionList)
+                    }
                 }
                 mode = 'a'
             }
