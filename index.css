@@ -3,10 +3,14 @@ body {
 }
 
 #workspace {
-    width: 800px;
-    height: 600px;
+    margin-top: 25px;
+    width: 1080px;
+    height: 720px;
     position: relative;
     border: solid black 1px;
+    resize: both;
+    overflow-x: hidden;
+    overflow-y: hidden;
 }
 
 .rope-segment {
@@ -17,8 +21,8 @@ body {
 }
 
 .object-node {
-    width: 5px;
-    height: 5px;
+    width: 10px;
+    height: 10px;
     border: solid 1px black;
     border-radius: 50% ;
     background-color: green;

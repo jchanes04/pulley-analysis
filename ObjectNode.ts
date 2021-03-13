@@ -20,14 +20,19 @@ class ObjectNode {
 
         this.htmlElement = document.createElement("div")
         this.htmlElement.classList.add("object-node")
-        this.htmlElement.style.left = (elementOptions.x - 3.5) + 'px'
-        this.htmlElement.style.top = (elementOptions.y - 4.5) + 'px'
         document.getElementById("workspace")!.appendChild(this.htmlElement)
+        console.log(this.htmlElement.offsetWidth)
+        this.htmlElement.style.left = (elementOptions.x - this.htmlElement.offsetWidth / 2) + 'px'
+        this.htmlElement.style.top = (elementOptions.y - this.htmlElement.offsetHeight / 2) + 'px'
     }
 
     setID(id: string) {
         this.id = id
         this.htmlElement.dataset.ID = this.id
+    }
+
+    setParent(parent: SimulationObject) {
+        this.parent = parent
     }
 }
 

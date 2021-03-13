@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+var snapDistance = 36;
 const workspace = document.getElementById("workspace");
 var mode = 'a'; //'a' for anchoring     's' for sizing   'n' for sizing after first selecting a node
 var firstClickPos, firstClickNode;
@@ -48,10 +49,10 @@ var massScalingFunction = (event) => {
     let mousePos = getMousePos(event);
     let xDiff = Math.abs(mousePos.x - firstClickPos.x);
     let yDiff = Math.abs(mousePos.y - firstClickPos.y);
-    scalingHtmlElement.style.width = Math.max(xDiff, yDiff) + 'px';
-    scalingHtmlElement.style.height = Math.max(xDiff, yDiff) + 'px';
-    scalingHtmlElement.style.top = Math.min(mousePos.y, firstClickPos.y) + 'px';
-    scalingHtmlElement.style.left = Math.min(mousePos.x, firstClickPos.x) + 'px';
+    scalingHtmlElement.style.width = 2 * xDiff + 'px';
+    scalingHtmlElement.style.height = 2 * yDiff + 'px';
+    scalingHtmlElement.style.top = firstClickPos.y - yDiff + 'px';
+    scalingHtmlElement.style.left = firstClickPos.x - xDiff + 'px';
 };
 workspace.onclick = (event) => {
     var _a, _b;
@@ -113,6 +114,8 @@ workspace.onclick = (event) => {
                     });
                     setID(newSegment);
                     setID(newSegment.startNode);
+                    connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode) });
+                    console.dir(connectionList);
                 }
                 else { //second node is on empty space
                     let newSegment = new RopeSegment({
@@ -124,6 +127,8 @@ workspace.onclick = (event) => {
                     setID(newSegment);
                     setID(newSegment.startNode);
                     setID(newSegment.endNode);
+                    connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode) });
+                    console.dir(connectionList);
                 }
                 mode = 'a';
             }
@@ -136,6 +141,8 @@ workspace.onclick = (event) => {
                         endNode: globalIDList[targetNodeID]
                     });
                     setID(newSegment);
+                    connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode) });
+                    console.dir(connectionList);
                 }
                 else { // second node is on empty space
                     let newSegment = new RopeSegment({
@@ -145,6 +152,8 @@ workspace.onclick = (event) => {
                     });
                     setID(newSegment);
                     setID(newSegment.endNode);
+                    connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode) });
+                    console.dir(connectionList);
                 }
                 mode = 'a';
             }
@@ -153,19 +162,39 @@ workspace.onclick = (event) => {
         case "mass": {
             let mass = (_b = parseFloat(document.getElementById("mass-input").value)) !== null && _b !== void 0 ? _b : 0;
             if (mode === 'a') { //placing the mass
-                firstClickPos = pos;
-                mode = 's';
-                scalingHtmlElement = document.createElement("div");
-                scalingHtmlElement.classList.add("scaling-mass");
-                workspace.appendChild(scalingHtmlElement);
-                workspace.addEventListener('mousemove', massScalingFunction);
+                if (clickedOnNode) { //placing on existing node
+                    firstClickNode = globalIDList[targetNodeID];
+                    firstClickPos = { x: firstClickNode.x, y: firstClickNode.y };
+                    mode = 'n';
+                    scalingHtmlElement = document.createElement("div");
+                    scalingHtmlElement.classList.add("scaling-mass");
+                    workspace.appendChild(scalingHtmlElement);
+                    workspace.addEventListener("mousemove", massScalingFunction);
+                }
+                else { //create new node on empty space
+                    firstClickPos = pos;
+                    mode = 's';
+                    scalingHtmlElement = document.createElement("div");
+                    scalingHtmlElement.classList.add("scaling-mass");
+                    workspace.appendChild(scalingHtmlElement);
+                    workspace.addEventListener("mousemove", massScalingFunction);
+                }
             }
             else if (mode === 's') { //second click is done to size the mass
                 workspace.removeEventListener('mousemove', massScalingFunction);
                 scalingHtmlElement.remove();
                 let xDiff = Math.abs(firstClickPos.x - pos.x);
                 let yDiff = Math.abs(firstClickPos.y - pos.y);
-                let createdElement = new Mass({ x: Math.min(firstClickPos.x, pos.x), y: Math.min(firstClickPos.y, pos.y) }, Math.max(xDiff, yDiff), mass);
+                let createdElement = new Mass(firstClickPos, { width: xDiff * 2, height: yDiff * 2 }, mass);
+                setID(createdElement);
+                mode = 'a';
+            }
+            else if (mode === 'n') {
+                workspace.removeEventListener('mousemove', massScalingFunction);
+                scalingHtmlElement.remove();
+                let xDiff = Math.abs(firstClickPos.x - pos.x);
+                let yDiff = Math.abs(firstClickPos.y - pos.y);
+                let createdElement = new Mass(firstClickPos, { width: xDiff * 2, height: yDiff * 2 }, mass, globalIDList[targetNodeID]);
                 setID(createdElement);
                 mode = 'a';
             }
@@ -183,10 +212,15 @@ function setID(element) {
 function getMousePos(evt) {
     var rect = workspace.getBoundingClientRect();
     return {
-        x: evt.clientX - rect.left,
-        y: evt.clientY - rect.top
+        x: Math.round((evt.clientX - rect.left) / snapDistance) * snapDistance,
+        y: Math.round((evt.clientY - rect.top) / snapDistance) * snapDistance
     };
 }
 function getDist(pos1, pos2) {
-    return (Math.sqrt(Math.pow((pos1.x - pos2.x), 2) + Math.pow((pos1.y - pos2.y), 2)));
+    let newPos1 = snapPosition(pos1);
+    let newPos2 = snapPosition(pos2);
+    return Math.sqrt(Math.pow((newPos1.x - newPos2.x), 2) + Math.pow((newPos1.y - newPos2.y), 2));
+}
+function snapPosition(pos) {
+    return { x: Math.round(pos.x / snapDistance) * snapDistance, y: Math.round(pos.y / snapDistance) * snapDistance };
 }
