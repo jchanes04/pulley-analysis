@@ -1,3 +1,8 @@
+type Position = {
+    x: number,
+    y: number
+}
+
 import Pulley = require('./Pulley')
 import RopeSegment = require('./RopeSegment')
 import Mass = require('./Mass')
@@ -7,23 +12,22 @@ type SimulationObject = Pulley | RopeSegment | Mass
 interface ObjectNode {
     id: string,
     parent: SimulationObject | null,
-    x: number,
-    y: number,
+    pos: Position,
+    fixed: boolean,
     htmlElement: HTMLElement
 }
 class ObjectNode {
-    constructor(parent: SimulationObject, elementOptions: { x: number, y: number }) {
+    constructor(parent: SimulationObject, pos: Position) {
         this.parent = parent ?? null
 
-        this.x = elementOptions.x
-        this.y = elementOptions.y
+        this.pos = pos
 
         this.htmlElement = document.createElement("div")
         this.htmlElement.classList.add("object-node")
         document.getElementById("workspace")!.appendChild(this.htmlElement)
         console.log(this.htmlElement.offsetWidth)
-        this.htmlElement.style.left = (elementOptions.x - this.htmlElement.offsetWidth / 2) + 'px'
-        this.htmlElement.style.top = (elementOptions.y - this.htmlElement.offsetHeight / 2) + 'px'
+        this.htmlElement.style.left = (pos.x - this.htmlElement.offsetWidth / 2) + 'px'
+        this.htmlElement.style.top = (pos.y - this.htmlElement.offsetHeight / 2) + 'px'
     }
 
     setID(id: string) {
@@ -33,6 +37,17 @@ class ObjectNode {
 
     setParent(parent: SimulationObject) {
         this.parent = parent
+    }
+
+    fixNode() {
+        this.fixed = true;
+
+        if (this.parent?.constructor.name === "Pulley") {
+            (<Pulley>this.parent).fixPulley()
+        }
+
+        this.htmlElement.classList.remove("object-node")
+        this.htmlElement.classList.add("fixed-node")
     }
 }
 

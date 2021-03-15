@@ -1,45 +1,53 @@
 <!DOCTYPE html>
 
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Pulley Simulator</title>
-        <meta http-equiv="Content-Security-Policy" content="script-src 'self'  'unsafe-inline';">
 
-        <link rel="stylesheet" type="text/css" href="index.css">
-        
-        <script>
-            var previousInput
-            function validateMass() {
-                let inputtedValue = document.getElementById("mass-input").value
-                let number = parseFloat(inputtedValue)
-                if (number === NaN) {
-                    document.getElementById("mass-input").value = previousInput
-                } else {
-                    previousInput = inputtedValue
-                }
+<head>
+    <meta charset="UTF-8">
+    <title>Pulley Simulator</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self'  'unsafe-inline';">
+
+    <link rel="stylesheet" type="text/css" href="index.css">
+
+    <script>
+        var previousInput
+        function validateMass() {
+            let inputtedValue = document.getElementById("mass-input").value
+            let number = parseFloat(inputtedValue)
+            if (number === NaN) {
+                document.getElementById("mass-input").value = previousInput
+            } else {
+                previousInput = inputtedValue
             }
-        </script>
-    </head>
+        }
+    </script>
+</head>
 
-    <body>
-        <div id="workspace">
+<body>
+    <div id="workspace">
+        <canvas id="grid-canvas">
+            
+        </canvas>
+    </div>
+    <div id="toolbar">
+        <p>Select an element:</p>
+        <input type="radio" name="selected-object" value="pulley" id="pulley">
+        <label for="pulley">Pulley</label>
+        <br>
+        <input type="radio" name="selected-object" value="rope-segment" id="rope-segment">
+        <label for="rope-segment">Rope Segment</label>
+        <br>
+        <input type="radio" name="selected-object" value="mass" id="mass">
+        <label for="mass">Mass</label>
+        <br>
+        <input type="radio" name="selected-object" value="fix-node" id="fix-node">
+        <label for="fix-node">Fix Node</label>
+        <br>
+        <input type="text" name="mass" id="mass-input" oninput="validateMass()">
+        <button id="calculate-button">Calculate</button>
+    </div>
+</body>
 
-        </div>
-        <div id="toolbar">
-            <p>Select an element:</p>
-            <input type="radio" name="selected-object" value="pulley" id="pulley">
-            <label for="pulley">Pulley</label>
-            <br>
-            <input type="radio" name="selected-object" value="rope-segment" id="rope-segment">
-            <label for="rope-segment">Rope Segment</label>
-            <br>
-            <input type="radio" name="selected-object" value="mass" id="mass">
-            <label for="mass">Mass</label>
-            <br>
-            <input type="text" name="mass" id="mass-input" oninput="validateMass()">
-        </div>
-    </body>
 </html>
 
 <script>
