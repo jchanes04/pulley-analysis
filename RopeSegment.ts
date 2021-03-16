@@ -9,8 +9,8 @@ interface RopeSegment {
     id: string
     startNode: ObjectNode,
     endNode: ObjectNode,
-    tensionNumber: number, //keeps track if the rope segment is part of greater rope with tension T_1, T_2, etc.
-    htmlElement: HTMLElement
+    ropeNumber: number, //keeps track if the rope segment is part of greater rope with tension T_1, T_2, etc.
+    htmlElement: HTMLElement,
     ropeLabel: HTMLElement
 }
 
@@ -63,8 +63,8 @@ class RopeSegment {
         this.ropeLabel = document.createElement("div")
         this.ropeLabel.classList.add("label")
         this.ropeLabel.style.height = length + 'px'
-        this.ropeLabel.style.top = (top+length/2) + 'px'
-        this.ropeLabel.style.left = (left+3) + 'px'
+        this.ropeLabel.style.top = (top + length / 2) + 'px'
+        this.ropeLabel.style.left = (left + 3) + 'px'
         document.getElementById("workspace")!.appendChild(this.ropeLabel)
     }
 
@@ -73,31 +73,32 @@ class RopeSegment {
         this.htmlElement.dataset.ID = this.id
     }
 
-    isConnectedToLeftNodeOf(pulley: Pulley) {
-        return (_.isEqual(this.startNode.pos, pulley.leftNode.pos) || _.isEqual(this.endNode.pos, pulley.leftNode.pos))
-    }
-
-    isConnectedToRightNodeOf(pulley: Pulley) {
-        return (_.isEqual(this.startNode.pos, pulley.rightNode.pos) || _.isEqual(this.endNode.pos, pulley.rightNode.pos))
-    }
-
-    isConnectedToCenterNodeOf(pulley: Pulley) {
-        return (_.isEqual(this.startNode.pos, pulley.centerNode.pos) || _.isEqual(this.endNode.pos, pulley.centerNode.pos))
+    isConnectedTo(node: ObjectNode) { 
+        return (_.isEqual(this.startNode.pos, node.pos) || _.isEqual(this.endNode.pos, node.pos))//technically this should be an XOR not OR ( one rope segment should not be connected to the left AND right side of the pulley)
     }
 
     loopsAround(pulley: Pulley) {
-        return (this.isConnectedToLeftNodeOf(pulley) || this.isConnectedToRightNodeOf(pulley))
+        return (this.isConnectedTo(pulley.leftNode) || this.isConnectedTo(pulley.rightNode))
     }
 
-    directionOfPullOnMass(mass : Mass){
-        if(Math.max(this.startNode.pos.y, this.endNode.pos.y) < mass.pos.y){
-            return "up"
-        }
-        else return "down"
+    loopsUpAround(pulley: Pulley) {
+        return (this.loopsAround(pulley) && 
+        Math.min(this.startNode.pos.y, this.endNode.pos.y) < pulley.pos.y)
     }
 
-    isConnectedToMass(mass : Mass){
-        return (_.isEqual(this.startNode.pos, mass.pos) || _.isEqual(this.endNode.pos, mass.pos))
+    loopsDownAround(pulley: Pulley) {
+        return (this.loopsAround(pulley) && 
+        Math.max(this.startNode.pos.y, this.endNode.pos.y) > pulley.pos.y)
+    }
+
+    pullsStraightUpOn(obj: (Pulley | Mass)) {
+        return (this.isConnectedTo(obj.centerNode) &&
+        Math.min(this.startNode.pos.y, this.endNode.pos.y) < obj.pos.y)
+    }
+
+    pullsStraightDownOn(obj: (Pulley | Mass)) {
+        return (this.isConnectedTo(obj.centerNode) &&
+        Math.max(this.startNode.pos.y, this.endNode.pos.y) > obj.pos.y)
     }
 }
 

@@ -4,7 +4,6 @@ class Mass {
     constructor(pos, dimensions, mass, node) {
         this.pos = pos;
         this.mass = mass;
-        console.log(`mass: ${mass}`);
         if (node) {
             this.centerNode = node;
             node.setParent(this);

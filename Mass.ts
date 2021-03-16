@@ -9,9 +9,10 @@ interface Mass {
     id: string,
     pos: Position,
     mass: number,
+    fixed: boolean,
     massNumber: number, //keeps track of the mass number (M1, M2, etc.)
-    centerNode: ObjectNode
-    htmlElement: HTMLElement
+    centerNode: ObjectNode,
+    htmlElement: HTMLElement,
     massLabel: HTMLElement
 }
 
@@ -19,8 +20,6 @@ class Mass {
     constructor(pos: Position, dimensions: { width: number, height: number }, mass: number, node?: ObjectNode) {
         this.pos = pos
         this.mass = mass
-
-        console.log(`mass: ${mass}`)
 
         if (node) {
             this.centerNode = node

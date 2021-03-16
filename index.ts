@@ -8,7 +8,7 @@ type SimulationObject = RopeSegment | Pulley | Mass
 type IDList = Record<string, SimulationObject | ObjectNode>
 type ConnectionList = Array<{ upperNode: ObjectNode, lowerNode: ObjectNode }>
 
-var snapDistance = 25
+var snapDistance = 30
 
 const workspace: HTMLElement = document.getElementById("workspace")!
 const gridCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("grid-canvas")!
@@ -23,8 +23,8 @@ import Pulley = require('./Pulley')
 import RopeSegment = require('./RopeSegment')
 import Mass = require('./Mass')
 import ObjectNode = require('./ObjectNode')
-import { Script } from 'vm'
-import _ from "underscore"
+import _, { invert } from "underscore"
+import { Matrix, solve} from 'ml-matrix'
 
 var scalingHtmlElement: HTMLElement
 var ropeLabel: HTMLElement
@@ -33,7 +33,7 @@ var ropeLabel: HTMLElement
     gridCanvas.width = workspace.clientWidth
     gridCanvas.height = workspace.clientHeight
     let ctx: CanvasRenderingContext2D = gridCanvas.getContext("2d")!
-    
+
     for (let i = 0; i < gridCanvas.width; i += snapDistance) {
         ctx.moveTo(i, 0)
         ctx.lineTo(i, gridCanvas.height)
@@ -158,7 +158,6 @@ workspace.onclick = (event: MouseEvent) => {
         }
         case "mass": {
             let mass = parseFloat((<HTMLInputElement>document.getElementById("mass-input")).value) ?? 0
-            console.log(`Mass: ${mass}`)
             if (mode === 'f') { //placing the mass
                 firstClickPos = pos
 
@@ -184,8 +183,6 @@ workspace.onclick = (event: MouseEvent) => {
         }
         case "fix-node": {
             let nodes = getNodesAtPos(pos) //getting all the nodes that have the same position as "pos"
-            console.dir(nodes)
-
             nodes.forEach(node => { node.fixNode() })
         }
     }
@@ -243,13 +240,13 @@ function getMasses() {
     }))
 }
 
-function setTensionIDsOfLinkedRopeSegments(ropeSegment1: RopeSegment, tensionNumber: number) {
+function setTensionIDsOfLinkedRopeSegments(ropeSegment1: RopeSegment, ropeNumber: number) {
     for (let pulley of getPulleys()) { //iterate over all pulleys
         if (ropeSegment1.loopsAround(pulley)) {
             for (let ropeSegment2 of getRopeSegments()) {
-                if (ropeSegment2.tensionNumber === undefined && ropeSegment2.loopsAround(pulley)) {
-                    ropeSegment2.tensionNumber = tensionNumber
-                    setTensionIDsOfLinkedRopeSegments(ropeSegment2, tensionNumber)
+                if (ropeSegment2.ropeNumber === undefined && ropeSegment2.loopsAround(pulley)) {
+                    ropeSegment2.ropeNumber = ropeNumber
+                    setTensionIDsOfLinkedRopeSegments(ropeSegment2, ropeNumber)
                 }
             }
         }
@@ -259,37 +256,172 @@ function setTensionIDsOfLinkedRopeSegments(ropeSegment1: RopeSegment, tensionNum
 function calculate() {
     //labeling the ropes (T1, T2, etc.)
     for (let ropeSegment of getRopeSegments()) {
-        if (ropeSegment.tensionNumber === undefined) {
+        if (ropeSegment.ropeNumber === undefined) {
             ropeCount++
-            ropeSegment.tensionNumber = ropeCount
-            ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.tensionNumber.toString();
+            ropeSegment.ropeNumber = ropeCount
+            ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
             setTensionIDsOfLinkedRopeSegments(ropeSegment, ropeCount)
         }
-        ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.tensionNumber.toString();
+        ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
     }
 
-    //labeling the masses (M1, M2, etc.)
+    //need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
+
+    //labeling the masses (m1, m2, etc.)
     for (let mass of getMasses()) {
         massCount++
         mass.massNumber = massCount
-        mass.htmlElement.innerText = 'm_' + mass.massNumber.toString()
+        mass.htmlElement.innerText = 'm' + mass.massNumber.toString()
     }
 
     //labeling the pulleys (P1, P2, etc.)
-    for (let pulleys of getPulleys()) {
+    for (let pulley of getPulleys()) {
         pulleyCount++
-        pulleys.pulleyNumber = pulleyCount
+        pulley.pulleyNumber = pulleyCount
+        pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString()
     }
 
+    let EOMs = [] //holds the equations of motion in string form
+    let dim = ropeCount + massCount + pulleyCount //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
+    let A = Matrix.zeros(dim, dim)
+    let x = [] //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
+    let b = []
+
+    //finding equations of motion for masses
     for (let mass of getMasses()) {
+        let LHS = ``//left hand side 
+        let RHS = ``//right hand side 
+        x.push(`a_m${mass.massNumber}`)
+
+        if (!(mass.fixed || mass.mass == 0)) {
+            LHS = `${-mass.mass}*a_m${mass.massNumber}`
+            RHS = `${mass.mass * 9.81}`
+            b.push(mass.mass * 9.81)
+        }
+
+        let visitedRopes: number[] = []
         for (let ropeSegment of getRopeSegments()) {
-            if (ropeSegment.isConnectedToMass(mass)) {
-                console.log(ropeSegment)
-                console.log(mass)
-                console.log(`m_${mass.massNumber}*a_m_${mass.massNumber} = T_${ropeSegment.tensionNumber} - 9.81*m_${mass.massNumber}`)
+            if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
+                if (ropeSegment.pullsStraightUpOn(mass)) {
+                    LHS += ` +1*T${ropeSegment.ropeNumber}`
+                    visitedRopes.push(ropeSegment.ropeNumber)
+
+                }
+                else if (ropeSegment.pullsStraightDownOn(mass)) {
+                    LHS += ` -1*T${ropeSegment.ropeNumber}`
+                    visitedRopes.push(ropeSegment.ropeNumber)
+
+                }
             }
         }
+        EOMs.push(`${LHS} = ${RHS}`)
     }
+
+    //printing out equations of motion for pulleys
+    for (let pulley of getPulleys()) {
+        let LHS = ``//left hand side 
+        let RHS = `0`//right hand side
+        x.push(`a_P${pulley.pulleyNumber}`)
+        b.push(0)
+
+        if (!(pulley.fixed || pulley.mass == 0)) {
+            LHS = ` ${-pulley.mass}*a_P${pulley.pulleyNumber}`
+            RHS = `${pulley.mass * 9.81}`
+        }
+
+        let visitedRopes: number[] = []
+        for (let ropeSegment of getRopeSegments()) {
+            if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
+                if (ropeSegment.loopsUpAround(pulley)) {
+                    LHS += ` +2*${ropeSegment.ropeLabel.innerText}`
+                    visitedRopes.push(ropeSegment.ropeNumber)
+                }
+                else if (ropeSegment.loopsDownAround(pulley)) {
+                    LHS += ` -2*${ropeSegment.ropeLabel.innerText}`
+                    visitedRopes.push(ropeSegment.ropeNumber)
+                }
+                else if (ropeSegment.pullsStraightUpOn(pulley)) {
+                    LHS += ` +1*${ropeSegment.ropeLabel.innerText}`
+                    visitedRopes.push(ropeSegment.ropeNumber)
+                }
+                else if (ropeSegment.pullsStraightDownOn(pulley)) {
+                    LHS += ` -1*${ropeSegment.ropeLabel.innerText}`
+                    visitedRopes.push(ropeSegment.ropeNumber)
+                }
+            }
+        }
+        EOMs.push(`${LHS} = ${RHS}`)
+    }
+
+    //printing out equations of motion for string-conservation
+    for (let i = 1; i <= ropeCount; i++) {
+        let LHS = ``//left hand side 
+        let RHS = `0`//right hand side
+        x.push(`T${i}`)
+        b.push(0)
+
+        let visitedPulleys: number[] = []
+        let visitedMasses: number[] = []
+
+        for (let ropeSegment of getRopeSegments()) {
+            if (ropeSegment.ropeNumber == i) { // only consider the rope segments that make up the same greater rope
+                for (let pulley of getPulleys()) {
+                    if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleartion due to multiple rope segments that make up the same rope
+                        if (ropeSegment.loopsUpAround(pulley)) {
+                            LHS += ` +2*a_P${pulley.pulleyNumber}`
+                            visitedPulleys.push(pulley.pulleyNumber)
+                        }
+                        else if (ropeSegment.loopsDownAround(pulley)) {
+                            LHS += ` -2*a_P${pulley.pulleyNumber}`
+                            visitedPulleys.push(pulley.pulleyNumber)
+                        }
+                        else if (ropeSegment.pullsStraightUpOn(pulley)) {
+                            LHS += ` +1*a_P${pulley.pulleyNumber}`
+                            visitedPulleys.push(pulley.pulleyNumber)
+                        }
+                        else if (ropeSegment.pullsStraightDownOn(pulley)) {
+                            LHS += ` -1*a_P${pulley.pulleyNumber}`
+                            visitedPulleys.push(pulley.pulleyNumber)
+                        }
+                    }
+                }
+
+                for (let mass of getMasses()) {
+                    if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleartion due to multiple rope segments that make up the same rope
+                        if (ropeSegment.pullsStraightUpOn(mass)) {
+                            LHS += ` +1*a_m${mass.massNumber}`
+                            visitedMasses.push(mass.massNumber)
+                        }
+                        else if (ropeSegment.pullsStraightDownOn(mass)) {
+                            LHS += ` -1*a_m${mass.massNumber}`
+                            visitedMasses.push(mass.massNumber)
+                        }
+                    }
+                }
+            }
+        }
+        EOMs.push(`${LHS} = ${RHS}`)
+    }
+
+    //filling out the A matrix
+    for (let i = 0; i < dim; i++) {
+        for (let j = 0; j < dim; j++) {
+            let unknown = x[j]
+            let endIDX = EOMs[i].indexOf(unknown)
+            let coeefficent = parseInt(EOMs[i].substring(endIDX-3, endIDX-1))
+            if(isNaN(coeefficent)){
+                coeefficent=0
+            }
+            A.set(i,j, coeefficent);
+        }
+    }
+
+    //solving the system
+    let b_vector = Matrix.columnVector(b)
+    let solved_x = solve(A, b_vector)
+    for(let i=0; i<dim; i++){
+        console.log(`${x[i]} = ${solved_x.get(i,0)}`)
+    }  
 }
 
 document.getElementById("calculate-button")!.onclick = calculate
