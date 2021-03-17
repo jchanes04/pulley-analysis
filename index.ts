@@ -6,7 +6,6 @@ type Position = {
 type SimulationObject = RopeSegment | Pulley | Mass
 
 type IDList = Record<string, SimulationObject | ObjectNode>
-type ConnectionList = Array<{ upperNode: ObjectNode, lowerNode: ObjectNode }>
 
 var snapDistance = 30
 
@@ -28,6 +27,35 @@ import { Matrix, solve} from 'ml-matrix'
 
 var scalingHtmlElement: HTMLElement
 var ropeLabel: HTMLElement
+
+type Edit = {
+    type: "create" | "delete" | "move",
+    objectID: string,
+    data: object
+}
+
+interface CommandManager {
+    editStack: Edit[],
+    undoStack: Edit[]
+}
+
+class CommandManager {
+    constructor() {
+        this.editStack = [] // edits that have been made, can be undone
+        this.undoStack = [] // edits that have already been undone and can be redone
+    } 
+
+    add(edit: Edit) {
+        this.editStack.unshift(edit)
+    }
+
+    undo() {
+        if (this.editStack.length > 0) {
+            let undone = this.editStack.shift()!
+            this.undoStack.unshift(undone)
+        }
+    }
+}
 
 (function drawGrid() {
     gridCanvas.width = workspace.clientWidth
@@ -253,8 +281,7 @@ function setTensionIDsOfLinkedRopeSegments(ropeSegment1: RopeSegment, ropeNumber
     }
 }
 
-function calculate() {
-    //labeling the ropes (T1, T2, etc.)
+function labelRopes() {    //labeling the ropes (T1, T2, etc.)
     for (let ropeSegment of getRopeSegments()) {
         if (ropeSegment.ropeNumber === undefined) {
             ropeCount++
@@ -264,22 +291,31 @@ function calculate() {
         }
         ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
     }
+}
 
-    //need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
-
-    //labeling the masses (m1, m2, etc.)
+function labelMasses(){    //labeling the masses (m1, m2, etc.)
     for (let mass of getMasses()) {
         massCount++
         mass.massNumber = massCount
         mass.htmlElement.innerText = 'm' + mass.massNumber.toString()
     }
+}
 
-    //labeling the pulleys (P1, P2, etc.)
+function labelPulleys(){    //labeling the pulleys (P1, P2, etc.)
     for (let pulley of getPulleys()) {
         pulleyCount++
         pulley.pulleyNumber = pulleyCount
         pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString()
     }
+}
+
+function calculate() {
+    labelRopes()
+
+    //TODO: need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
+    
+    labelMasses()
+    labelPulleys()
 
     let EOMs = [] //holds the equations of motion in string form
     let dim = ropeCount + massCount + pulleyCount //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
@@ -287,7 +323,7 @@ function calculate() {
     let x = [] //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
     let b = []
 
-    //finding equations of motion for masses
+    //generating equations of motion for masses
     for (let mass of getMasses()) {
         let LHS = ``//left hand side 
         let RHS = ``//right hand side 
@@ -317,17 +353,12 @@ function calculate() {
         EOMs.push(`${LHS} = ${RHS}`)
     }
 
-    //printing out equations of motion for pulleys
+    //generating equations of motion for pulleys
     for (let pulley of getPulleys()) {
-        let LHS = ``//left hand side 
-        let RHS = `0`//right hand side
+        let LHS = ` ${-pulley.mass}*a_P${pulley.pulleyNumber}` //left hand side 
+        let RHS = `${pulley.mass * 9.81}` //right hand side
         x.push(`a_P${pulley.pulleyNumber}`)
-        b.push(0)
-
-        if (!(pulley.fixed || pulley.mass == 0)) {
-            LHS = ` ${-pulley.mass}*a_P${pulley.pulleyNumber}`
-            RHS = `${pulley.mass * 9.81}`
-        }
+        b.push(pulley.mass * 9.81)
 
         let visitedRopes: number[] = []
         for (let ropeSegment of getRopeSegments()) {
@@ -353,7 +384,7 @@ function calculate() {
         EOMs.push(`${LHS} = ${RHS}`)
     }
 
-    //printing out equations of motion for string-conservation
+    //generating the conservation of string equations
     for (let i = 1; i <= ropeCount; i++) {
         let LHS = ``//left hand side 
         let RHS = `0`//right hand side
@@ -366,7 +397,7 @@ function calculate() {
         for (let ropeSegment of getRopeSegments()) {
             if (ropeSegment.ropeNumber == i) { // only consider the rope segments that make up the same greater rope
                 for (let pulley of getPulleys()) {
-                    if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleartion due to multiple rope segments that make up the same rope
+                    if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleration due to multiple rope segments that make up the same rope
                         if (ropeSegment.loopsUpAround(pulley)) {
                             LHS += ` +2*a_P${pulley.pulleyNumber}`
                             visitedPulleys.push(pulley.pulleyNumber)
@@ -387,7 +418,7 @@ function calculate() {
                 }
 
                 for (let mass of getMasses()) {
-                    if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleartion due to multiple rope segments that make up the same rope
+                    if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleration due to multiple rope segments that make up the same rope
                         if (ropeSegment.pullsStraightUpOn(mass)) {
                             LHS += ` +1*a_m${mass.massNumber}`
                             visitedMasses.push(mass.massNumber)
@@ -415,6 +446,8 @@ function calculate() {
             A.set(i,j, coeefficent);
         }
     }
+
+    console.log(EOMs)
 
     //solving the system
     let b_vector = Matrix.columnVector(b)

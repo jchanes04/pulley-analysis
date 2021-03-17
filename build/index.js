@@ -244,10 +244,10 @@ function calculate() {
         pulley.pulleyNumber = pulleyCount;
         pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString();
     }
-    let EOMs = []; //equations of motion
-    let dim = ropeCount + massCount + pulleyCount;
+    let EOMs = []; //holds the equations of motion in string form
+    let dim = ropeCount + massCount + pulleyCount; //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
     let A = ml_matrix_1.Matrix.zeros(dim, dim);
-    let x = []; //unknowns
+    let x = []; //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
     let b = [];
     //finding equations of motion for masses
     for (let mass of getMasses()) {
@@ -276,14 +276,10 @@ function calculate() {
     }
     //printing out equations of motion for pulleys
     for (let pulley of getPulleys()) {
-        let LHS = ``; //left hand side 
-        let RHS = `0`; //right hand side
+        let LHS = ` ${-pulley.mass}*a_P${pulley.pulleyNumber}`; //left hand side 
+        let RHS = `${pulley.mass * 9.81}`; //right hand side
         x.push(`a_P${pulley.pulleyNumber}`);
-        b.push(0);
-        if (!(pulley.fixed || pulley.mass == 0)) {
-            LHS = ` ${-pulley.mass}*a_P${pulley.pulleyNumber}`;
-            RHS = `${pulley.mass * 9.81}`;
-        }
+        b.push(pulley.mass * 9.81);
         let visitedRopes = [];
         for (let ropeSegment of getRopeSegments()) {
             if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
@@ -365,6 +361,8 @@ function calculate() {
             A.set(i, j, coeefficent);
         }
     }
+    console.log(EOMs);
+    //solving the system
     let b_vector = ml_matrix_1.Matrix.columnVector(b);
     let solved_x = ml_matrix_1.solve(A, b_vector);
     for (let i = 0; i < dim; i++) {

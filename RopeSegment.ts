@@ -100,6 +100,11 @@ class RopeSegment {
         return (this.isConnectedTo(obj.centerNode) &&
         Math.max(this.startNode.pos.y, this.endNode.pos.y) > obj.pos.y)
     }
+
+    delete() {
+        this.htmlElement.remove()
+        this.ropeLabel.remove()
+    }
 }
 
 export = RopeSegment

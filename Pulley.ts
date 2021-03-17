@@ -50,6 +50,11 @@ class Pulley {
     fixPulley(){
         this.fixed = true
     }
+
+    delete() {
+        this.htmlElement.remove()
+        this.pulleyLabel.remove()
+    }
 }
 
 export = Pulley
