@@ -7,7 +7,7 @@ class Pulley {
         this.leftNode = new ObjectNode(this, { x: pos.x - radius, y: pos.y });
         this.rightNode = new ObjectNode(this, { x: pos.x + radius, y: pos.y });
         this.centerNode = new ObjectNode(this, pos);
-        this.mass = (_a = objectOptions.mass) !== null && _a !== void 0 ? _a : 0;
+        this.mass = ((isNaN((_a = objectOptions.mass) !== null && _a !== void 0 ? _a : NaN)) ? 0 : objectOptions.mass) || 0;
         //display stuff
         this.htmlElement = document.createElement("div");
         this.htmlElement.classList.add('pulley');
@@ -28,6 +28,15 @@ class Pulley {
     }
     fixPulley() {
         this.fixed = true;
+    }
+    delete() {
+        this.htmlElement.remove();
+        this.pulleyLabel.remove();
+        return [this.leftNode, this.rightNode, this.centerNode];
+    }
+    render() {
+        document.getElementById('workspace').appendChild(this.htmlElement);
+        document.getElementById('workspace').appendChild(this.pulleyLabel);
     }
 }
 module.exports = Pulley;

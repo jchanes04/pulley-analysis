@@ -54,6 +54,12 @@ class Mass {
     delete() {
         this.htmlElement.remove()
         this.massLabel.remove()
+        return [this.centerNode]
+    }
+
+    render() {
+        document.getElementById('workspace')!.appendChild(this.htmlElement)
+        document.getElementById("workspace")!.appendChild(this.massLabel)
     }
 }
 

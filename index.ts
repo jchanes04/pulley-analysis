@@ -22,7 +22,7 @@ import Pulley = require('./Pulley')
 import RopeSegment = require('./RopeSegment')
 import Mass = require('./Mass')
 import ObjectNode = require('./ObjectNode')
-import _, { invert } from "underscore"
+import _, { create, invert } from "underscore"
 import { Matrix, solve} from 'ml-matrix'
 
 var scalingHtmlElement: HTMLElement
@@ -31,7 +31,10 @@ var ropeLabel: HTMLElement
 type Edit = {
     type: "create" | "delete" | "move",
     objectID: string,
-    data: object
+    data?: {
+        objectData?: SimulationObject,
+        nodesToRender?: ObjectNode[]
+    }
 }
 
 interface CommandManager {
@@ -47,19 +50,83 @@ class CommandManager {
 
     add(edit: Edit) {
         this.editStack.unshift(edit)
+        this.undoStack = []
     }
 
     undo() {
         if (this.editStack.length > 0) {
             let undone = this.editStack.shift()!
-            this.undoStack.unshift(undone)
+
+            switch(undone.type) {
+                case "create": {
+                    let createdElement = globalElementList[undone.objectID]
+
+                    if (!(createdElement instanceof ObjectNode)) {
+                        let nodesToDelete = createdElement.delete()
+                        delete globalElementList[undone.objectID]
+                        nodesToDelete.forEach(node => {
+                            node.delete()
+                            delete globalElementList[node.id]
+                        })
+                        this.undoStack.unshift({
+                            type: "create",
+                            objectID: undone.objectID,
+                            data: {
+                                objectData: createdElement,
+                                nodesToRender: nodesToDelete
+                            }
+                        })
+                    }
+                }
+                
+            }
+        }
+    }
+
+    redo() {
+        if(this.undoStack.length > 0) {
+            let redone = this.undoStack.shift()!
+
+            switch (redone.type) {
+                case "create": {
+                    redone.data?.objectData?.render()
+                    redone.data?.nodesToRender?.forEach(node => {
+                        node.render()
+                    })
+                    globalElementList[redone.objectID] = redone.data?.objectData!
+                    this.editStack.unshift({
+                        type: "create",
+                        objectID: redone.objectID
+                    })
+                }
+            }
         }
     }
 }
 
+const editManager = new CommandManager()
+
+document.getElementById("undo")!.onclick = () => {
+    editManager.undo()
+}
+
+document.getElementById("redo")!.onclick = () => {
+    editManager.redo()
+}
+
+document.onkeyup = (e) => {
+    if (e.ctrlKey && e.code === "KeyZ") {
+        editManager.undo()
+    } else if (e.ctrlKey && e.code === "KeyY") {
+        editManager.redo()
+    }
+}
+
 (function drawGrid() {
-    gridCanvas.width = workspace.clientWidth
-    gridCanvas.height = workspace.clientHeight
+    gridCanvas.width = 1300
+    gridCanvas.height = 900
+    gridCanvas.style.width = 1300 + 'px'
+    gridCanvas.style.height = 900 + 'px'
     let ctx: CanvasRenderingContext2D = gridCanvas.getContext("2d")!
 
     for (let i = 0; i < gridCanvas.width; i += snapDistance) {
@@ -88,7 +155,7 @@ var pulleyScalingFunction = (event: MouseEvent) => {
 
 var ropeSegmentScalingFunction = (event: MouseEvent) => {
     let mousePos = getMousePos(event)
-    let length = getSnappedDist(firstClickPos, mousePos)
+    let length = getDist(firstClickPos, mousePos)
     let xDiff = firstClickPos.x - mousePos.x
     let yDiff = firstClickPos.y - mousePos.y
     let angle = 180 / Math.PI * Math.acos(yDiff / length)
@@ -118,12 +185,19 @@ var ropeSegmentScalingFunction = (event: MouseEvent) => {
 
 var massScalingFunction = (event: MouseEvent) => {
     let mousePos = getMousePos(event)
-    let xDiff = Math.abs(mousePos.x - firstClickPos.x)
-    let yDiff = Math.abs(mousePos.y - firstClickPos.y)
-    scalingHtmlElement.style.width = 2 * xDiff + 'px'
-    scalingHtmlElement.style.height = 2 * yDiff + 'px'
-    scalingHtmlElement.style.top = firstClickPos.y - yDiff + 'px'
-    scalingHtmlElement.style.left = firstClickPos.x - xDiff + 'px'
+    let xDiff
+    let yDiff
+    if (getDist(mousePos, firstClickPos) < snapDistance / 2) {
+        xDiff = 0
+        yDiff = 0
+    } else {
+        xDiff = Math.max(Math.abs(mousePos.x - firstClickPos.x), snapDistance)
+        yDiff = Math.max(Math.abs(mousePos.y - firstClickPos.y), snapDistance)
+    }
+    scalingHtmlElement.style.width = 2 * xDiff - 2 + 'px'
+    scalingHtmlElement.style.height = 2 * yDiff - 2 + 'px'
+    scalingHtmlElement.style.top = firstClickPos.y - yDiff - 1 + 'px'
+    scalingHtmlElement.style.left = firstClickPos.x - xDiff - 1 + 'px'
 }
 
 workspace.onclick = (event: MouseEvent) => {
@@ -147,10 +221,17 @@ workspace.onclick = (event: MouseEvent) => {
                 scalingHtmlElement.remove()
 
                 let newPulley = new Pulley(firstClickPos, getSnappedDist(firstClickPos, pos), { mass: mass })
+
                 setID(newPulley)
                 setID(newPulley.leftNode)
                 setID(newPulley.rightNode)
                 setID(newPulley.centerNode)
+
+                editManager.add({
+                    type: "create",
+                    objectID: newPulley.id
+                })
+
                 mode = 'f'
             }
             break
@@ -175,9 +256,15 @@ workspace.onclick = (event: MouseEvent) => {
                     endX: pos.x,
                     endY: pos.y
                 })
+
                 setID(newRopeSegment)
                 setID(newRopeSegment.startNode)
                 setID(newRopeSegment.endNode)
+
+                editManager.add({
+                    type: "create",
+                    objectID: newRopeSegment.id,
+                })
                 //connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode) })
                 //console.dir(connectionList)
                 mode = 'f'
@@ -201,9 +288,17 @@ workspace.onclick = (event: MouseEvent) => {
 
                 let xDiff = Math.abs(firstClickPos.x - pos.x)
                 let yDiff = Math.abs(firstClickPos.y - pos.y)
-                let newMass = new Mass(firstClickPos, { width: xDiff * 2, height: yDiff * 2 }, mass)
-                setID(newMass)
-                setID(newMass.centerNode)
+                if (xDiff !== 0 && yDiff !== 0) {
+                    let newMass = new Mass(firstClickPos, { width: xDiff * 2, height: yDiff * 2 }, mass)
+
+                    setID(newMass)
+                    setID(newMass.centerNode)
+
+                    editManager.add({
+                        type: "create",
+                        objectID: newMass.id
+                    })
+                }
 
                 mode = 'f'
             }
@@ -233,6 +328,10 @@ function getMousePos(evt: MouseEvent) {
         x: Math.round((evt.clientX - rect.left) / snapDistance) * snapDistance,
         y: Math.round((evt.clientY - rect.top) / snapDistance) * snapDistance
     }
+}
+
+function getDist(pos1: Position, pos2: Position) {
+    return Math.sqrt((pos1.x - pos2.x) ** 2 + (pos1.y - pos2.y) ** 2)
 }
 
 function getSnappedDist(pos1: Position, pos2: Position) {

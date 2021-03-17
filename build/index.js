@@ -20,9 +20,81 @@ const underscore_1 = __importDefault(require("underscore"));
 const ml_matrix_1 = require("ml-matrix");
 var scalingHtmlElement;
 var ropeLabel;
+class CommandManager {
+    constructor() {
+        this.editStack = []; // edits that have been made, can be undone
+        this.undoStack = []; // edits that have already been undone and can be redone
+    }
+    add(edit) {
+        this.editStack.unshift(edit);
+        this.undoStack = [];
+    }
+    undo() {
+        if (this.editStack.length > 0) {
+            let undone = this.editStack.shift();
+            switch (undone.type) {
+                case "create": {
+                    let createdElement = globalElementList[undone.objectID];
+                    if (!(createdElement instanceof ObjectNode)) {
+                        let nodesToDelete = createdElement.delete();
+                        delete globalElementList[undone.objectID];
+                        nodesToDelete.forEach(node => {
+                            node.delete();
+                            delete globalElementList[node.id];
+                        });
+                        this.undoStack.unshift({
+                            type: "create",
+                            objectID: undone.objectID,
+                            data: {
+                                objectData: createdElement,
+                                nodesToRender: nodesToDelete
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+    redo() {
+        var _a, _b, _c, _d, _e;
+        if (this.undoStack.length > 0) {
+            let redone = this.undoStack.shift();
+            switch (redone.type) {
+                case "create": {
+                    (_b = (_a = redone.data) === null || _a === void 0 ? void 0 : _a.objectData) === null || _b === void 0 ? void 0 : _b.render();
+                    (_d = (_c = redone.data) === null || _c === void 0 ? void 0 : _c.nodesToRender) === null || _d === void 0 ? void 0 : _d.forEach(node => {
+                        node.render();
+                    });
+                    globalElementList[redone.objectID] = (_e = redone.data) === null || _e === void 0 ? void 0 : _e.objectData;
+                    this.editStack.unshift({
+                        type: "create",
+                        objectID: redone.objectID
+                    });
+                }
+            }
+        }
+    }
+}
+const editManager = new CommandManager();
+document.getElementById("undo").onclick = () => {
+    editManager.undo();
+};
+document.getElementById("redo").onclick = () => {
+    editManager.redo();
+};
+document.onkeyup = (e) => {
+    if (e.ctrlKey && e.code === "KeyZ") {
+        editManager.undo();
+    }
+    else if (e.ctrlKey && e.code === "KeyY") {
+        editManager.redo();
+    }
+};
 (function drawGrid() {
-    gridCanvas.width = workspace.clientWidth;
-    gridCanvas.height = workspace.clientHeight;
+    gridCanvas.width = 1300;
+    gridCanvas.height = 900;
+    gridCanvas.style.width = 1300 + 'px';
+    gridCanvas.style.height = 900 + 'px';
     let ctx = gridCanvas.getContext("2d");
     for (let i = 0; i < gridCanvas.width; i += snapDistance) {
         ctx.moveTo(i, 0);
@@ -47,7 +119,7 @@ var pulleyScalingFunction = (event) => {
 };
 var ropeSegmentScalingFunction = (event) => {
     let mousePos = getMousePos(event);
-    let length = getSnappedDist(firstClickPos, mousePos);
+    let length = getDist(firstClickPos, mousePos);
     let xDiff = firstClickPos.x - mousePos.x;
     let yDiff = firstClickPos.y - mousePos.y;
     let angle = 180 / Math.PI * Math.acos(yDiff / length);
@@ -74,12 +146,20 @@ var ropeSegmentScalingFunction = (event) => {
 };
 var massScalingFunction = (event) => {
     let mousePos = getMousePos(event);
-    let xDiff = Math.abs(mousePos.x - firstClickPos.x);
-    let yDiff = Math.abs(mousePos.y - firstClickPos.y);
-    scalingHtmlElement.style.width = 2 * xDiff + 'px';
-    scalingHtmlElement.style.height = 2 * yDiff + 'px';
-    scalingHtmlElement.style.top = firstClickPos.y - yDiff + 'px';
-    scalingHtmlElement.style.left = firstClickPos.x - xDiff + 'px';
+    let xDiff;
+    let yDiff;
+    if (getDist(mousePos, firstClickPos) < snapDistance / 2) {
+        xDiff = 0;
+        yDiff = 0;
+    }
+    else {
+        xDiff = Math.max(Math.abs(mousePos.x - firstClickPos.x), snapDistance);
+        yDiff = Math.max(Math.abs(mousePos.y - firstClickPos.y), snapDistance);
+    }
+    scalingHtmlElement.style.width = 2 * xDiff - 2 + 'px';
+    scalingHtmlElement.style.height = 2 * yDiff - 2 + 'px';
+    scalingHtmlElement.style.top = firstClickPos.y - yDiff - 1 + 'px';
+    scalingHtmlElement.style.left = firstClickPos.x - xDiff - 1 + 'px';
 };
 workspace.onclick = (event) => {
     var _a;
@@ -104,6 +184,10 @@ workspace.onclick = (event) => {
                 setID(newPulley.leftNode);
                 setID(newPulley.rightNode);
                 setID(newPulley.centerNode);
+                editManager.add({
+                    type: "create",
+                    objectID: newPulley.id
+                });
                 mode = 'f';
             }
             break;
@@ -129,6 +213,10 @@ workspace.onclick = (event) => {
                 setID(newRopeSegment);
                 setID(newRopeSegment.startNode);
                 setID(newRopeSegment.endNode);
+                editManager.add({
+                    type: "create",
+                    objectID: newRopeSegment.id,
+                });
                 //connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode) })
                 //console.dir(connectionList)
                 mode = 'f';
@@ -150,9 +238,15 @@ workspace.onclick = (event) => {
                 scalingHtmlElement.remove();
                 let xDiff = Math.abs(firstClickPos.x - pos.x);
                 let yDiff = Math.abs(firstClickPos.y - pos.y);
-                let newMass = new Mass(firstClickPos, { width: xDiff * 2, height: yDiff * 2 }, mass);
-                setID(newMass);
-                setID(newMass.centerNode);
+                if (xDiff !== 0 && yDiff !== 0) {
+                    let newMass = new Mass(firstClickPos, { width: xDiff * 2, height: yDiff * 2 }, mass);
+                    setID(newMass);
+                    setID(newMass.centerNode);
+                    editManager.add({
+                        type: "create",
+                        objectID: newMass.id
+                    });
+                }
                 mode = 'f';
             }
             break;
@@ -179,6 +273,9 @@ function getMousePos(evt) {
         x: Math.round((evt.clientX - rect.left) / snapDistance) * snapDistance,
         y: Math.round((evt.clientY - rect.top) / snapDistance) * snapDistance
     };
+}
+function getDist(pos1, pos2) {
+    return Math.sqrt(Math.pow((pos1.x - pos2.x), 2) + Math.pow((pos1.y - pos2.y), 2));
 }
 function getSnappedDist(pos1, pos2) {
     var unsnappedDist = Math.sqrt(Math.pow((pos1.x - pos2.x), 2) + Math.pow((pos1.y - pos2.y), 2));
@@ -220,8 +317,7 @@ function setTensionIDsOfLinkedRopeSegments(ropeSegment1, ropeNumber) {
         }
     }
 }
-function calculate() {
-    //labeling the ropes (T1, T2, etc.)
+function labelRopes() {
     for (let ropeSegment of getRopeSegments()) {
         if (ropeSegment.ropeNumber === undefined) {
             ropeCount++;
@@ -231,25 +327,32 @@ function calculate() {
         }
         ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
     }
-    //need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
-    //labeling the masses (m1, m2, etc.)
+}
+function labelMasses() {
     for (let mass of getMasses()) {
         massCount++;
         mass.massNumber = massCount;
         mass.htmlElement.innerText = 'm' + mass.massNumber.toString();
     }
-    //labeling the pulleys (P1, P2, etc.)
+}
+function labelPulleys() {
     for (let pulley of getPulleys()) {
         pulleyCount++;
         pulley.pulleyNumber = pulleyCount;
         pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString();
     }
+}
+function calculate() {
+    labelRopes();
+    //TODO: need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
+    labelMasses();
+    labelPulleys();
     let EOMs = []; //holds the equations of motion in string form
     let dim = ropeCount + massCount + pulleyCount; //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
     let A = ml_matrix_1.Matrix.zeros(dim, dim);
     let x = []; //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
     let b = [];
-    //finding equations of motion for masses
+    //generating equations of motion for masses
     for (let mass of getMasses()) {
         let LHS = ``; //left hand side 
         let RHS = ``; //right hand side 
@@ -274,7 +377,7 @@ function calculate() {
         }
         EOMs.push(`${LHS} = ${RHS}`);
     }
-    //printing out equations of motion for pulleys
+    //generating equations of motion for pulleys
     for (let pulley of getPulleys()) {
         let LHS = ` ${-pulley.mass}*a_P${pulley.pulleyNumber}`; //left hand side 
         let RHS = `${pulley.mass * 9.81}`; //right hand side
@@ -303,7 +406,7 @@ function calculate() {
         }
         EOMs.push(`${LHS} = ${RHS}`);
     }
-    //printing out equations of motion for string-conservation
+    //generating the conservation of string equations
     for (let i = 1; i <= ropeCount; i++) {
         let LHS = ``; //left hand side 
         let RHS = `0`; //right hand side
@@ -314,7 +417,7 @@ function calculate() {
         for (let ropeSegment of getRopeSegments()) {
             if (ropeSegment.ropeNumber == i) { // only consider the rope segments that make up the same greater rope
                 for (let pulley of getPulleys()) {
-                    if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleartion due to multiple rope segments that make up the same rope
+                    if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleration due to multiple rope segments that make up the same rope
                         if (ropeSegment.loopsUpAround(pulley)) {
                             LHS += ` +2*a_P${pulley.pulleyNumber}`;
                             visitedPulleys.push(pulley.pulleyNumber);
@@ -334,7 +437,7 @@ function calculate() {
                     }
                 }
                 for (let mass of getMasses()) {
-                    if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleartion due to multiple rope segments that make up the same rope
+                    if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleration due to multiple rope segments that make up the same rope
                         if (ropeSegment.pullsStraightUpOn(mass)) {
                             LHS += ` +1*a_m${mass.massNumber}`;
                             visitedMasses.push(mass.massNumber);

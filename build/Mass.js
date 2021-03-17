@@ -31,5 +31,14 @@ class Mass {
         this.id = id;
         this.htmlElement.dataset.ID = this.id;
     }
+    delete() {
+        this.htmlElement.remove();
+        this.massLabel.remove();
+        return [this.centerNode];
+    }
+    render() {
+        document.getElementById('workspace').appendChild(this.htmlElement);
+        document.getElementById("workspace").appendChild(this.massLabel);
+    }
 }
 module.exports = Mass;

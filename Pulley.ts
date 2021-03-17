@@ -24,7 +24,7 @@ class Pulley {
         this.rightNode = new ObjectNode(this, { x: pos.x + radius, y: pos.y })
         this.centerNode = new ObjectNode(this, pos)
 
-        this.mass = objectOptions.mass ?? 0
+        this.mass = ((isNaN(objectOptions.mass ?? NaN)) ? 0 : objectOptions.mass) || 0
         
         //display stuff
         this.htmlElement = document.createElement("div")
@@ -54,6 +54,12 @@ class Pulley {
     delete() {
         this.htmlElement.remove()
         this.pulleyLabel.remove()
+        return [this.leftNode, this.rightNode, this.centerNode]
+    }
+
+    render() {
+        document.getElementById('workspace')!.appendChild(this.htmlElement)
+        document.getElementById('workspace')!.appendChild(this.pulleyLabel)
     }
 }
 

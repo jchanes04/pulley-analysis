@@ -79,5 +79,14 @@ class RopeSegment {
         return (this.isConnectedTo(obj.centerNode) &&
             Math.max(this.startNode.pos.y, this.endNode.pos.y) > obj.pos.y);
     }
+    delete() {
+        this.htmlElement.remove();
+        this.ropeLabel.remove();
+        return [this.startNode, this.endNode];
+    }
+    render() {
+        document.getElementById("workspace").appendChild(this.htmlElement);
+        document.getElementById("workspace").appendChild(this.ropeLabel);
+    }
 }
 module.exports = RopeSegment;

@@ -104,6 +104,12 @@ class RopeSegment {
     delete() {
         this.htmlElement.remove()
         this.ropeLabel.remove()
+        return [this.startNode, this.endNode]
+    }
+
+    render() {
+        document.getElementById("workspace")!.appendChild(this.htmlElement)
+        document.getElementById("workspace")!.appendChild(this.ropeLabel)
     }
 }
 
