@@ -35,6 +35,7 @@ class Pulley {
         this.htmlElement.style.left = (pos.x - 1 - radius) + 'px'
         document.getElementById('workspace')!.appendChild(this.htmlElement)
 
+        //displaying the label ("P1", "P2", etc.)
         this.pulleyLabel = document.createElement("div")
         this.pulleyLabel.classList.add('label')
         this.pulleyLabel.style.top = (pos.y+.16*radius)  + 'px'

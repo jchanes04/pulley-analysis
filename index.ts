@@ -14,16 +14,15 @@ const gridCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById
 var mode: string = 'f' //'f' for first click     's' for second click
 var firstClickPos: Position
 var globalElementList: IDList = {}
-var ropeCount: number = 0
-var massCount: number = 0
-var pulleyCount: number = 0
 
 import Pulley = require('./Pulley')
 import RopeSegment = require('./RopeSegment')
 import Mass = require('./Mass')
 import ObjectNode = require('./ObjectNode')
+import Equation = require('./Equation')
 import _, { create, invert } from "underscore"
-import { Matrix, solve} from 'ml-matrix'
+import { Matrix, solve } from 'ml-matrix'
+import { strict } from 'node:assert'
 
 var scalingHtmlElement: HTMLElement
 var ropeLabel: HTMLElement
@@ -46,7 +45,7 @@ class CommandManager {
     constructor() {
         this.editStack = [] // edits that have been made, can be undone
         this.undoStack = [] // edits that have already been undone and can be redone
-    } 
+    }
 
     add(edit: Edit) {
         this.editStack.unshift(edit)
@@ -57,7 +56,7 @@ class CommandManager {
         if (this.editStack.length > 0) {
             let undone = this.editStack.shift()!
 
-            switch(undone.type) {
+            switch (undone.type) {
                 case "create": {
                     let createdElement = globalElementList[undone.objectID]
 
@@ -78,13 +77,13 @@ class CommandManager {
                         })
                     }
                 }
-                
+
             }
         }
     }
 
     redo() {
-        if(this.undoStack.length > 0) {
+        if (this.undoStack.length > 0) {
             let redone = this.undoStack.shift()!
 
             switch (redone.type) {
@@ -265,8 +264,6 @@ workspace.onclick = (event: MouseEvent) => {
                     type: "create",
                     objectID: newRopeSegment.id,
                 })
-                //connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode) })
-                //console.dir(connectionList)
                 mode = 'f'
             }
             break
@@ -309,8 +306,6 @@ workspace.onclick = (event: MouseEvent) => {
             nodes.forEach(node => { node.fixNode() })
         }
     }
-    //console.log(Object.keys(globalElementList).length)
-    //console.dir(globalElementList)
 }
 
 function setID(element: SimulationObject | ObjectNode) {
@@ -380,7 +375,28 @@ function setTensionIDsOfLinkedRopeSegments(ropeSegment1: RopeSegment, ropeNumber
     }
 }
 
-function labelRopes() {    //labeling the ropes (T1, T2, etc.)
+function clearNumberings(){
+    for (let ropeSegment of getRopeSegments()) {
+        ropeSegment.ropeNumber = undefined!
+        ropeSegment.ropeLabel.innerText = undefined!
+    }
+    for (let mass of getMasses()) {
+        mass.massNumber = undefined!
+        mass.htmlElement.innerText = undefined!
+    }
+    for (let pulley of getPulleys()) {
+        pulley.pulleyNumber = undefined!
+        pulley.pulleyLabel.innerText = undefined!
+    }
+}
+
+
+function calculate() {
+    clearNumberings()
+    let ropeCount: number = 0
+    let massCount: number = 0
+    let pulleyCount: number = 0
+
     for (let ropeSegment of getRopeSegments()) {
         if (ropeSegment.ropeNumber === undefined) {
             ropeCount++
@@ -390,105 +406,97 @@ function labelRopes() {    //labeling the ropes (T1, T2, etc.)
         }
         ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
     }
-}
 
-function labelMasses(){    //labeling the masses (m1, m2, etc.)
-    for (let mass of getMasses()) {
+
+    //TODO: need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
+
+    for (let mass of getMasses()) { //labeling the masses (m1, m2, etc.)
         massCount++
         mass.massNumber = massCount
         mass.htmlElement.innerText = 'm' + mass.massNumber.toString()
     }
-}
 
-function labelPulleys(){    //labeling the pulleys (P1, P2, etc.)
-    for (let pulley of getPulleys()) {
+    for (let pulley of getPulleys()) {//labeling the pulleys (P1, P2, etc.)
         pulleyCount++
         pulley.pulleyNumber = pulleyCount
         pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString()
     }
-}
 
-function calculate() {
-    labelRopes()
-
-    //TODO: need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
-    
-    labelMasses()
-    labelPulleys()
-
-    let EOMs = [] //holds the equations of motion in string form
     let dim = ropeCount + massCount + pulleyCount //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
+    let EQNs: Equation[] = [] //holds the equations of motion in string form
     let A = Matrix.zeros(dim, dim)
     let x = [] //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
     let b = []
 
     //generating equations of motion for masses
     for (let mass of getMasses()) {
-        let LHS = ``//left hand side 
-        let RHS = ``//right hand side 
-        x.push(`a_m${mass.massNumber}`)
+        let EQN: Equation = new Equation();
+        let unknown: string = `a_m${mass.massNumber}`
+        x.push(unknown)
 
         if (!(mass.fixed || mass.mass == 0)) {
-            LHS = `${-mass.mass}*a_m${mass.massNumber}`
-            RHS = `${mass.mass * 9.81}`
-            b.push(mass.mass * 9.81)
+            EQN.addTerm(-mass.mass, unknown)
+            EQN.b = mass.mass * 9.81
         }
 
         let visitedRopes: number[] = []
         for (let ropeSegment of getRopeSegments()) {
             if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
                 if (ropeSegment.pullsStraightUpOn(mass)) {
-                    LHS += ` +1*T${ropeSegment.ropeNumber}`
+                    EQN.addTerm(1, `T${ropeSegment.ropeNumber}`)
                     visitedRopes.push(ropeSegment.ropeNumber)
-
                 }
                 else if (ropeSegment.pullsStraightDownOn(mass)) {
-                    LHS += ` -1*T${ropeSegment.ropeNumber}`
+                    EQN.addTerm(-1, `T${ropeSegment.ropeNumber}`)
                     visitedRopes.push(ropeSegment.ropeNumber)
 
                 }
             }
         }
-        EOMs.push(`${LHS} = ${RHS}`)
+        EQNs.push(EQN)
     }
 
     //generating equations of motion for pulleys
     for (let pulley of getPulleys()) {
-        let LHS = ` ${-pulley.mass}*a_P${pulley.pulleyNumber}` //left hand side 
-        let RHS = `${pulley.mass * 9.81}` //right hand side
-        x.push(`a_P${pulley.pulleyNumber}`)
-        b.push(pulley.mass * 9.81)
+        let EQN: Equation = new Equation();
+        let unknown: string = `a_P${pulley.pulleyNumber}`
+        x.push(unknown)
+
+        if (!pulley.fixed) {
+            EQN.addTerm(-pulley.mass, unknown)
+            EQN.b = pulley.mass * 9.81
+        }
 
         let visitedRopes: number[] = []
         for (let ropeSegment of getRopeSegments()) {
             if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
                 if (ropeSegment.loopsUpAround(pulley)) {
-                    LHS += ` +2*${ropeSegment.ropeLabel.innerText}`
+                    EQN.addTerm(2, ropeSegment.ropeLabel.innerText)
                     visitedRopes.push(ropeSegment.ropeNumber)
                 }
                 else if (ropeSegment.loopsDownAround(pulley)) {
-                    LHS += ` -2*${ropeSegment.ropeLabel.innerText}`
+                    EQN.addTerm(-2, ropeSegment.ropeLabel.innerText)
                     visitedRopes.push(ropeSegment.ropeNumber)
                 }
                 else if (ropeSegment.pullsStraightUpOn(pulley)) {
-                    LHS += ` +1*${ropeSegment.ropeLabel.innerText}`
+                    EQN.addTerm(1, ropeSegment.ropeLabel.innerText)
                     visitedRopes.push(ropeSegment.ropeNumber)
                 }
                 else if (ropeSegment.pullsStraightDownOn(pulley)) {
-                    LHS += ` -1*${ropeSegment.ropeLabel.innerText}`
+                    EQN.addTerm(-1, ropeSegment.ropeLabel.innerText)
                     visitedRopes.push(ropeSegment.ropeNumber)
                 }
             }
         }
-        EOMs.push(`${LHS} = ${RHS}`)
+        EQNs.push(EQN)
     }
 
     //generating the conservation of string equations
     for (let i = 1; i <= ropeCount; i++) {
-        let LHS = ``//left hand side 
-        let RHS = `0`//right hand side
-        x.push(`T${i}`)
-        b.push(0)
+        let EQN: Equation = new Equation();
+        let unknown: string = `T${i}`
+        EQN.b = 0
+        x.push(unknown)
 
         let visitedPulleys: number[] = []
         let visitedMasses: number[] = []
@@ -498,19 +506,19 @@ function calculate() {
                 for (let pulley of getPulleys()) {
                     if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleration due to multiple rope segments that make up the same rope
                         if (ropeSegment.loopsUpAround(pulley)) {
-                            LHS += ` +2*a_P${pulley.pulleyNumber}`
+                            EQN.addTerm(2, `a_P${pulley.pulleyNumber}`)
                             visitedPulleys.push(pulley.pulleyNumber)
                         }
                         else if (ropeSegment.loopsDownAround(pulley)) {
-                            LHS += ` -2*a_P${pulley.pulleyNumber}`
+                            EQN.addTerm(-2, `a_P${pulley.pulleyNumber}`)
                             visitedPulleys.push(pulley.pulleyNumber)
                         }
                         else if (ropeSegment.pullsStraightUpOn(pulley)) {
-                            LHS += ` +1*a_P${pulley.pulleyNumber}`
+                            EQN.addTerm(1, `a_P${pulley.pulleyNumber}`)
                             visitedPulleys.push(pulley.pulleyNumber)
                         }
                         else if (ropeSegment.pullsStraightDownOn(pulley)) {
-                            LHS += ` -1*a_P${pulley.pulleyNumber}`
+                            EQN.addTerm(-1, `a_P${pulley.pulleyNumber}`)
                             visitedPulleys.push(pulley.pulleyNumber)
                         }
                     }
@@ -519,41 +527,35 @@ function calculate() {
                 for (let mass of getMasses()) {
                     if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleration due to multiple rope segments that make up the same rope
                         if (ropeSegment.pullsStraightUpOn(mass)) {
-                            LHS += ` +1*a_m${mass.massNumber}`
+                            EQN.addTerm(1, `a_m${mass.massNumber}`)
                             visitedMasses.push(mass.massNumber)
                         }
                         else if (ropeSegment.pullsStraightDownOn(mass)) {
-                            LHS += ` -1*a_m${mass.massNumber}`
+                            EQN.addTerm(-1, `a_m${mass.massNumber}`)
                             visitedMasses.push(mass.massNumber)
                         }
                     }
                 }
             }
         }
-        EOMs.push(`${LHS} = ${RHS}`)
+        EQNs.push(EQN)
     }
 
     //filling out the A matrix
     for (let i = 0; i < dim; i++) {
         for (let j = 0; j < dim; j++) {
-            let unknown = x[j]
-            let endIDX = EOMs[i].indexOf(unknown)
-            let coeefficent = parseInt(EOMs[i].substring(endIDX-3, endIDX-1))
-            if(isNaN(coeefficent)){
-                coeefficent=0
-            }
-            A.set(i,j, coeefficent);
+            A.set(i, j, EQNs[i].coeffDict[x[j]] ?? 0); //if the qeuaiton sdeosnt have the unknown, set its coeff to 0 in the A matrix
         }
+        b.push(EQNs[i].b)
+        console.log(EQNs[i].toString())
     }
-
-    console.log(EOMs)
 
     //solving the system
     let b_vector = Matrix.columnVector(b)
     let solved_x = solve(A, b_vector)
-    for(let i=0; i<dim; i++){
-        console.log(`${x[i]} = ${solved_x.get(i,0)}`)
-    }  
+    for (let i = 0; i < dim; i++) {
+        console.log(`${x[i]} = ${solved_x.get(i, 0)}`)
+    }
 }
 
 document.getElementById("calculate-button")!.onclick = calculate

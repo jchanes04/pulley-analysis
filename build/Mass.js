@@ -19,6 +19,7 @@ class Mass {
         this.htmlElement.style.top = (pos.y - 1 - dimensions.height / 2) + 'px';
         this.htmlElement.style.left = (pos.x - 1 - dimensions.width / 2) + 'px';
         document.getElementById('workspace').appendChild(this.htmlElement);
+        //display the actual mass quantity (ex: "22 kg")
         this.massLabel = document.createElement("div");
         this.massLabel.classList.add("label");
         this.massLabel.style.height = length + 'px';
