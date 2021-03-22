@@ -8,6 +8,8 @@ class Pulley {
         this.rightNode = new ObjectNode(this, { x: pos.x + radius, y: pos.y });
         this.centerNode = new ObjectNode(this, pos);
         this.mass = ((isNaN((_a = objectOptions.mass) !== null && _a !== void 0 ? _a : NaN)) ? 0 : objectOptions.mass) || 0;
+        this.radius = radius;
+        this.acc = null;
         //display stuff
         this.htmlElement = document.createElement("div");
         this.htmlElement.classList.add('pulley');
@@ -29,6 +31,32 @@ class Pulley {
     }
     fixPulley() {
         this.fixed = true;
+    }
+    move(pos, nodeID) {
+        if (nodeID === this.rightNode.id) {
+            this.pos = { x: pos.x - this.radius, y: pos.y };
+            this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px';
+            this.htmlElement.style.left = (pos.x - 1 - 2 * this.radius) + 'px';
+            this.centerNode.move(this.pos, true);
+            this.leftNode.move({ x: pos.x - 2 * this.radius, y: pos.y }, true);
+        }
+        else if (nodeID === this.centerNode.id) {
+            this.pos = pos;
+            this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px';
+            this.htmlElement.style.left = (pos.x - 1 - this.radius) + 'px';
+            this.leftNode.move({ x: pos.x - this.radius, y: pos.y }, true);
+            this.rightNode.move({ x: pos.x + this.radius, y: pos.y }, true);
+        }
+        else if (nodeID === this.leftNode.id) {
+            this.pos = { x: pos.x + this.radius, y: pos.y };
+            this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px';
+            this.htmlElement.style.left = (pos.x - 1) + 'px';
+            this.centerNode.move({ x: pos.x + this.radius, y: pos.y }, true);
+            this.rightNode.move({ x: pos.x + 2 * this.radius, y: pos.y }, true);
+        }
+    }
+    setAcceleration(acc) {
+        this.acc = acc;
     }
     delete() {
         this.htmlElement.remove();

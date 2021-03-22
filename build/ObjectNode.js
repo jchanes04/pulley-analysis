@@ -25,6 +25,18 @@ class ObjectNode {
         this.htmlElement.classList.remove("object-node");
         this.htmlElement.classList.add("fixed-node");
     }
+    move(pos, alreadyMovedParent) {
+        var _a;
+        this.pos = pos;
+        this.htmlElement.style.left = (pos.x - this.htmlElement.offsetWidth / 2) + 'px';
+        this.htmlElement.style.top = (pos.y - this.htmlElement.offsetHeight / 2) + 'px';
+        if (alreadyMovedParent) {
+            return;
+        }
+        else {
+            (_a = this.parent) === null || _a === void 0 ? void 0 : _a.move(pos, this.id);
+        }
+    }
     delete() {
         this.htmlElement.remove();
     }

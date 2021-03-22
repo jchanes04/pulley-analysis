@@ -9,6 +9,8 @@ interface Mass {
     id: string,
     pos: Position,
     mass: number,
+    acc: number | null,
+    dimensions: {width: number, height: number},
     fixed: boolean,
     massNumber: number, //keeps track of the mass number (M1, M2, etc.)
     centerNode: ObjectNode,
@@ -20,6 +22,9 @@ class Mass {
     constructor(pos: Position, dimensions: { width: number, height: number }, mass: number, node?: ObjectNode) {
         this.pos = pos
         this.mass = mass
+        this.dimensions = dimensions
+
+        this.acc = null
 
         if (node) {
             this.centerNode = node
@@ -50,6 +55,17 @@ class Mass {
     setID(id: string) {
         this.id = id
         this.htmlElement.dataset.ID = this.id
+    }
+
+    move(pos: Position) {
+        this.pos = pos
+
+        this.htmlElement.style.top = (pos.y - 1 - this.dimensions.height / 2) + 'px'
+        this.htmlElement.style.left = (pos.x - 1 - this.dimensions.width / 2) + 'px'
+    }
+
+    setAcceleration(acc: number) {
+        this.acc = acc
     }
 
     delete() {

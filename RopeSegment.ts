@@ -1,8 +1,12 @@
+type Position = {
+    x: number,
+    y: number
+}
+
 import ObjectNode = require('./ObjectNode')
 import Pulley = require('./Pulley')
 import _ from "underscore"
 import Mass = require('./Mass')
-import { doesNotThrow } from 'assert'
 
 
 interface RopeSegment {
@@ -99,6 +103,67 @@ class RopeSegment {
     pullsStraightDownOn(obj: (Pulley | Mass)) {
         return (this.isConnectedTo(obj.centerNode) &&
         Math.max(this.startNode.pos.y, this.endNode.pos.y) > obj.pos.y)
+    }
+
+    move(pos: Position, nodeID: string) {
+        if (nodeID === this.startNode.id) {
+            let xDiff = pos.x - this.endNode.pos.x
+            let yDiff = pos.y - this.endNode.pos.y
+            let length = Math.sqrt(xDiff ** 2 + yDiff ** 2)
+            let angle = 180 / Math.PI * Math.acos(yDiff / length) //maybe change to atan2 and elimiate the proceeding polarity setting??
+
+            if (xDiff > 0) {
+                angle *= -1
+            }
+
+
+            if (this.endNode.pos.y > pos.y) {
+                var top = (this.endNode.pos.y - pos.y) / 2 + pos.y;
+            } else {
+                var top = (pos.y - this.endNode.pos.y) / 2 + this.endNode.pos.y;
+            }
+            top -= length / 2
+
+            if (this.endNode.pos.x > pos.x) {
+                var left = (this.endNode.pos.x - pos.x) / 2 + pos.x;
+            } else {
+                var left = (pos.x - this.endNode.pos.x) / 2 + this.endNode.pos.x;
+            }
+            
+            this.htmlElement.style.transform = `rotate(${angle}deg)`
+            this.htmlElement.style.height = length + 'px'
+            this.htmlElement.style.top = top + 'px'
+            this.htmlElement.style.left = (left - 1) + 'px'
+        } else if (nodeID === this.endNode.id) {
+            console.log("end code running")
+            let xDiff = this.startNode.pos.x - pos.x
+            let yDiff = this.startNode.pos.y - pos.y
+            let length = Math.sqrt(xDiff ** 2 + yDiff ** 2)
+            let angle = 180 / Math.PI * Math.acos(yDiff / length)
+
+            if (xDiff > 0) {
+                angle *= -1
+            }
+
+
+            if (pos.y > this.startNode.pos.y) {
+                var top = (pos.y - this.startNode.pos.y) / 2 + this.startNode.pos.y;
+            } else {
+                var top = (this.startNode.pos.y - pos.y) / 2 + pos.y;
+            }
+            top -= length / 2
+
+            if (pos.x > this.startNode.pos.x) {
+                var left = (pos.x - this.startNode.pos.x) / 2 + this.startNode.pos.x;
+            } else {
+                var left = (this.startNode.pos.x - pos.x) / 2 + pos.x;
+            }
+            
+            this.htmlElement.style.transform = `rotate(${angle}deg)`
+            this.htmlElement.style.height = length + 'px'
+            this.htmlElement.style.top = top + 'px'
+            this.htmlElement.style.left = (left - 1) + 'px'
+        }
     }
 
     delete() {

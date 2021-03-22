@@ -9,6 +9,8 @@ interface Pulley {
     id: string,
     pos: Position,
     mass: number,
+    radius: number,
+    acc: number | null,
     fixed: boolean,
     pulleyNumber: number,
     leftNode: ObjectNode,
@@ -25,6 +27,8 @@ class Pulley {
         this.centerNode = new ObjectNode(this, pos)
 
         this.mass = ((isNaN(objectOptions.mass ?? NaN)) ? 0 : objectOptions.mass) || 0
+        this.radius = radius
+        this.acc = null
         
         //display stuff
         this.htmlElement = document.createElement("div")
@@ -50,6 +54,38 @@ class Pulley {
 
     fixPulley(){
         this.fixed = true
+    }
+
+    move(pos: Position, nodeID : string) {
+        if (nodeID === this.rightNode.id) {
+            this.pos = {x: pos.x - this.radius, y: pos.y}
+
+            this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px'
+            this.htmlElement.style.left = (pos.x - 1 - 2 * this.radius) + 'px'
+
+            this.centerNode.move(this.pos, true)
+            this.leftNode.move({x: pos.x - 2 * this.radius, y: pos.y}, true)
+        } else if (nodeID === this.centerNode.id) {
+            this.pos = pos
+
+            this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px'
+            this.htmlElement.style.left = (pos.x - 1 - this.radius) + 'px'
+
+            this.leftNode.move({x: pos.x - this.radius, y: pos.y}, true)
+            this.rightNode.move({x: pos.x + this.radius, y: pos.y}, true)
+        } else if (nodeID === this.leftNode.id) {
+            this.pos = {x: pos.x + this.radius, y: pos.y}
+
+            this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px'
+            this.htmlElement.style.left = (pos.x - 1) + 'px'
+
+            this.centerNode.move({x: pos.x + this.radius, y: pos.y}, true)
+            this.rightNode.move({x: pos.x + 2 * this.radius, y: pos.y}, true)
+        }
+    }
+
+    setAcceleration(acc: number) {
+        this.acc = acc
     }
 
     delete() {

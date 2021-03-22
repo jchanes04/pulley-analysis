@@ -215,8 +215,6 @@ workspace.onclick = (event) => {
                     type: "create",
                     objectID: newRopeSegment.id,
                 });
-                //connectionList.push({ upperNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.startNode : newSegment.endNode), lowerNode: ((newSegment.endNode.y > newSegment.startNode.y) ? newSegment.endNode : newSegment.startNode) })
-                //console.dir(connectionList)
                 mode = 'f';
             }
             break;
@@ -254,8 +252,28 @@ workspace.onclick = (event) => {
             nodes.forEach(node => { node.fixNode(); });
         }
     }
-    //console.log(Object.keys(globalElementList).length)
-    //console.dir(globalElementList)
+};
+workspace.onmousedown = (event) => {
+    let selectedObject = document.querySelector('input[name="selected-object"]:checked').value; //getting the pulley/rope/mass type of selected-object
+    let pos = getMousePos(event);
+    if (selectedObject === "move") {
+        let nodes = getNodesAtPos(pos);
+        let currentSnappedPos = pos;
+        function moveListener(moveEvent) {
+            if (getMousePos(moveEvent).x !== currentSnappedPos.x || getMousePos(moveEvent).y !== currentSnappedPos.y) {
+                nodes.forEach(node => {
+                    node.move(getMousePos(moveEvent), false);
+                });
+                currentSnappedPos = getMousePos(moveEvent);
+            }
+        }
+        function mouseupListener(mouseupEvent) {
+            workspace.removeEventListener("mousemove", moveListener);
+            workspace.removeEventListener("mouseup", mouseupListener);
+        }
+        workspace.addEventListener("mousemove", moveListener);
+        workspace.addEventListener("mouseup", mouseupListener);
+    }
 };
 function setID(element) {
     let id;
@@ -332,7 +350,6 @@ function clearNumberings() {
 function calculate() {
     var _a;
     clearNumberings();
-    console.dir(globalElementList);
     let ropeCount = 0;
     let massCount = 0;
     let pulleyCount = 0;
@@ -477,5 +494,14 @@ function calculate() {
     for (let i = 0; i < dim; i++) {
         console.log(`${x[i]} = ${solved_x.get(i, 0)}`);
     }
+    /*for(let unknown of x){
+        for(let object in [...getMasses(), ...getPulleys()]){
+        }
+    }*/
+    console.dir(x);
+    console.dir([...getMasses(), ...getPulleys()]);
 }
 document.getElementById("calculate-button").onclick = calculate;
+function animate() {
+}
+document.getElementById("animate").onclick = animate;

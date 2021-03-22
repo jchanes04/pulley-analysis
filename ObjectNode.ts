@@ -49,6 +49,19 @@ class ObjectNode {
         this.htmlElement.classList.add("fixed-node")
     }
 
+    move(pos: Position, alreadyMovedParent :boolean) {
+        this.pos = pos
+
+        this.htmlElement.style.left = (pos.x - this.htmlElement.offsetWidth / 2) + 'px'
+        this.htmlElement.style.top = (pos.y - this.htmlElement.offsetHeight / 2) + 'px'
+
+        if (alreadyMovedParent) {
+            return
+        } else {
+            this.parent?.move(pos, this.id)
+        }
+    }
+
     delete() {
         this.htmlElement.remove()
     }

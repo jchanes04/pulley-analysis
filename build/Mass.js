@@ -4,6 +4,8 @@ class Mass {
     constructor(pos, dimensions, mass, node) {
         this.pos = pos;
         this.mass = mass;
+        this.dimensions = dimensions;
+        this.acc = null;
         if (node) {
             this.centerNode = node;
             node.setParent(this);
@@ -31,6 +33,14 @@ class Mass {
     setID(id) {
         this.id = id;
         this.htmlElement.dataset.ID = this.id;
+    }
+    move(pos) {
+        this.pos = pos;
+        this.htmlElement.style.top = (pos.y - 1 - this.dimensions.height / 2) + 'px';
+        this.htmlElement.style.left = (pos.x - 1 - this.dimensions.width / 2) + 'px';
+    }
+    setAcceleration(acc) {
+        this.acc = acc;
     }
     delete() {
         this.htmlElement.remove();

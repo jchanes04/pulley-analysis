@@ -22,7 +22,6 @@ import ObjectNode = require('./ObjectNode')
 import Equation = require('./Equation')
 import _, { create, invert } from "underscore"
 import { Matrix, solve } from 'ml-matrix'
-import { strict } from 'node:assert'
 
 var scalingHtmlElement: HTMLElement
 var ropeLabel: HTMLElement
@@ -308,6 +307,33 @@ workspace.onclick = (event: MouseEvent) => {
     }
 }
 
+workspace.onmousedown = (event) => {
+    let selectedObject: string = (<HTMLInputElement>document.querySelector('input[name="selected-object"]:checked')).value //getting the pulley/rope/mass type of selected-object
+    let pos = getMousePos(event)
+
+    if (selectedObject === "move") {
+        let nodes = getNodesAtPos(pos)
+        let currentSnappedPos = pos
+
+        function moveListener(moveEvent: MouseEvent) {
+            if (getMousePos(moveEvent).x !== currentSnappedPos.x || getMousePos(moveEvent).y !== currentSnappedPos.y) {
+                nodes.forEach(node => {
+                    node.move(getMousePos(moveEvent), false)
+                })
+                currentSnappedPos = getMousePos(moveEvent)
+            }
+        }
+
+        function mouseupListener(mouseupEvent: MouseEvent) {
+            workspace.removeEventListener("mousemove", moveListener)
+            workspace.removeEventListener("mouseup", mouseupListener)
+        }
+        
+        workspace.addEventListener("mousemove", moveListener)
+        workspace.addEventListener("mouseup", mouseupListener)
+    }
+}
+
 function setID(element: SimulationObject | ObjectNode) {
     let id: string
     do {
@@ -556,6 +582,23 @@ function calculate() {
     for (let i = 0; i < dim; i++) {
         console.log(`${x[i]} = ${solved_x.get(i, 0)}`)
     }
+
+    /*for(let unknown of x){
+        for(let object in [...getMasses(), ...getPulleys()]){
+        }
+    }*/
+    console.dir(x)
+    console.dir([...getMasses(), ...getPulleys()])
+
+
+    
+    // getMasses().filter(item => massNumber === num)[0]
 }
 
 document.getElementById("calculate-button")!.onclick = calculate
+
+function animate() {
+    
+}
+
+document.getElementById("animate")!.onclick = animate
