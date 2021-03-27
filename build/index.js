@@ -13,9 +13,8 @@ const Pulley = require("./Pulley");
 const RopeSegment = require("./RopeSegment");
 const Mass = require("./Mass");
 const ObjectNode = require("./ObjectNode");
-const Equation = require("./Equation");
+// import Equation = require('./Equation')
 const underscore_1 = __importDefault(require("underscore"));
-const ml_matrix_1 = require("ml-matrix");
 var scalingHtmlElement;
 var ropeLabel;
 class CommandManager {
@@ -110,8 +109,8 @@ document.onkeyup = (e) => {
 var pulleyScalingFunction = (event) => {
     let mousePos = getMousePos(event);
     let radius = getSnappedDist(firstClickPos, mousePos);
-    scalingHtmlElement.style.width = (2 * radius - 2) + 'px';
-    scalingHtmlElement.style.height = (2 * radius - 2) + 'px';
+    scalingHtmlElement.style.width = Math.max(2 * radius - 2, 0) + 'px';
+    scalingHtmlElement.style.height = Math.max(2 * radius - 2, 0) + 'px';
     scalingHtmlElement.style.top = (firstClickPos.y - 1 - radius) + 'px';
     scalingHtmlElement.style.left = (firstClickPos.x - 1 - radius) + 'px';
 };
@@ -146,7 +145,7 @@ var massScalingFunction = (event) => {
     let mousePos = getMousePos(event);
     let xDiff;
     let yDiff;
-    if (getDist(mousePos, firstClickPos) < snapDistance / 2) {
+    if (getDist(mousePos, firstClickPos) < snapDistance) {
         xDiff = 0;
         yDiff = 0;
     }
@@ -154,18 +153,29 @@ var massScalingFunction = (event) => {
         xDiff = Math.max(Math.abs(mousePos.x - firstClickPos.x), snapDistance);
         yDiff = Math.max(Math.abs(mousePos.y - firstClickPos.y), snapDistance);
     }
-    scalingHtmlElement.style.width = 2 * xDiff - 2 + 'px';
-    scalingHtmlElement.style.height = 2 * yDiff - 2 + 'px';
+    console.log(`X: ${xDiff}    Y: ${yDiff}`);
+    scalingHtmlElement.style.width = Math.max(2 * xDiff - 2, 0) + 'px';
+    scalingHtmlElement.style.height = Math.max(2 * yDiff - 2, 0) + 'px';
     scalingHtmlElement.style.top = firstClickPos.y - yDiff - 1 + 'px';
     scalingHtmlElement.style.left = firstClickPos.x - xDiff - 1 + 'px';
 };
+var radios = [...document.querySelectorAll('input[name="selected-object"]')];
+radios.forEach(radio => {
+    radio.onchange = () => {
+        var _a;
+        mode = "f";
+        workspace.removeEventListener('mousemove', pulleyScalingFunction);
+        workspace.removeEventListener('mousemove', massScalingFunction);
+        workspace.removeEventListener('mousemove', ropeSegmentScalingFunction);
+        (_a = scalingHtmlElement === null || scalingHtmlElement === void 0 ? void 0 : scalingHtmlElement.remove) === null || _a === void 0 ? void 0 : _a.call(scalingHtmlElement);
+    };
+});
 workspace.onclick = (event) => {
-    var _a;
     let selectedObject = document.querySelector('input[name="selected-object"]:checked').value; //getting the pulley/rope/mass type of selected-object
     let pos = getMousePos(event); // get position of mouse click
     switch (selectedObject) {
         case "pulley": {
-            let mass = parseFloat(document.getElementById("mass-input").value);
+            let mass = parseFloat(document.getElementById("mass-input").value) || 1;
             if (mode === 'f') {
                 firstClickPos = pos;
                 scalingHtmlElement = document.createElement("div");
@@ -220,7 +230,7 @@ workspace.onclick = (event) => {
             break;
         }
         case "mass": {
-            let mass = (_a = parseFloat(document.getElementById("mass-input").value)) !== null && _a !== void 0 ? _a : 0;
+            let mass = parseFloat(document.getElementById("mass-input").value) || 1;
             if (mode === 'f') { //placing the mass
                 firstClickPos = pos;
                 scalingHtmlElement = document.createElement("div");
@@ -256,7 +266,7 @@ workspace.onclick = (event) => {
 workspace.onmousedown = (event) => {
     let selectedObject = document.querySelector('input[name="selected-object"]:checked').value; //getting the pulley/rope/mass type of selected-object
     let pos = getMousePos(event);
-    if (selectedObject === "move") {
+    if (selectedObject === "move-node") {
         let nodes = getNodesAtPos(pos);
         let currentSnappedPos = pos;
         function moveListener(moveEvent) {
@@ -348,158 +358,181 @@ function clearNumberings() {
     }
 }
 function calculate() {
-    var _a;
-    clearNumberings();
-    let ropeCount = 0;
-    let massCount = 0;
-    let pulleyCount = 0;
-    for (let ropeSegment of getRopeSegments()) {
-        if (ropeSegment.ropeNumber === undefined) {
-            ropeCount++;
-            ropeSegment.ropeNumber = ropeCount;
-            ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
-            setTensionIDsOfLinkedRopeSegments(ropeSegment, ropeCount);
-        }
-        ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
-    }
-    //TODO: need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
-    for (let mass of getMasses()) { //labeling the masses (m1, m2, etc.)
-        massCount++;
-        mass.massNumber = massCount;
-        mass.htmlElement.innerText = 'm' + mass.massNumber.toString();
-    }
-    for (let pulley of getPulleys()) { //labeling the pulleys (P1, P2, etc.)
-        pulleyCount++;
-        pulley.pulleyNumber = pulleyCount;
-        pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString();
-    }
-    let dim = ropeCount + massCount + pulleyCount; //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
-    let EQNs = []; //holds the equations of motion in string form
-    let A = ml_matrix_1.Matrix.zeros(dim, dim);
-    let x = []; //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
-    let b = [];
-    //generating equations of motion for masses
-    for (let mass of getMasses()) {
-        let EQN = new Equation();
-        let unknown = `a_m${mass.massNumber}`;
-        x.push(unknown);
-        if (!(mass.fixed || mass.mass == 0)) {
-            EQN.addTerm(-mass.mass, unknown);
-            EQN.b = mass.mass * 9.81;
-        }
-        let visitedRopes = [];
-        for (let ropeSegment of getRopeSegments()) {
-            if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
-                if (ropeSegment.pullsStraightUpOn(mass)) {
-                    EQN.addTerm(1, `T${ropeSegment.ropeNumber}`);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.pullsStraightDownOn(mass)) {
-                    EQN.addTerm(-1, `T${ropeSegment.ropeNumber}`);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-            }
-        }
-        EQNs.push(EQN);
-    }
-    //generating equations of motion for pulleys
-    for (let pulley of getPulleys()) {
-        let EQN = new Equation();
-        let unknown = `a_P${pulley.pulleyNumber}`;
-        x.push(unknown);
-        if (!pulley.fixed) {
-            EQN.addTerm(-pulley.mass, unknown);
-            EQN.b = pulley.mass * 9.81;
-        }
-        let visitedRopes = [];
-        for (let ropeSegment of getRopeSegments()) {
-            if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
-                if (ropeSegment.loopsUpAround(pulley)) {
-                    EQN.addTerm(2, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.loopsDownAround(pulley)) {
-                    EQN.addTerm(-2, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.pullsStraightUpOn(pulley)) {
-                    EQN.addTerm(1, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.pullsStraightDownOn(pulley)) {
-                    EQN.addTerm(-1, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-            }
-        }
-        EQNs.push(EQN);
-    }
-    //generating the conservation of string equations
-    for (let i = 1; i <= ropeCount; i++) {
-        let EQN = new Equation();
-        let unknown = `T${i}`;
-        EQN.b = 0;
-        x.push(unknown);
-        let visitedPulleys = [];
-        let visitedMasses = [];
-        for (let ropeSegment of getRopeSegments()) {
-            if (ropeSegment.ropeNumber == i) { // only consider the rope segments that make up the same greater rope
-                for (let pulley of getPulleys()) {
-                    if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleration due to multiple rope segments that make up the same rope
-                        if (ropeSegment.loopsUpAround(pulley)) {
-                            EQN.addTerm(2, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                        else if (ropeSegment.loopsDownAround(pulley)) {
-                            EQN.addTerm(-2, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                        else if (ropeSegment.pullsStraightUpOn(pulley)) {
-                            EQN.addTerm(1, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                        else if (ropeSegment.pullsStraightDownOn(pulley)) {
-                            EQN.addTerm(-1, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                    }
-                }
-                for (let mass of getMasses()) {
-                    if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleration due to multiple rope segments that make up the same rope
-                        if (ropeSegment.pullsStraightUpOn(mass)) {
-                            EQN.addTerm(1, `a_m${mass.massNumber}`);
-                            visitedMasses.push(mass.massNumber);
-                        }
-                        else if (ropeSegment.pullsStraightDownOn(mass)) {
-                            EQN.addTerm(-1, `a_m${mass.massNumber}`);
-                            visitedMasses.push(mass.massNumber);
-                        }
-                    }
-                }
-            }
-        }
-        EQNs.push(EQN);
-    }
-    //filling out the A matrix
-    for (let i = 0; i < dim; i++) {
-        for (let j = 0; j < dim; j++) {
-            A.set(i, j, (_a = EQNs[i].coeffDict[x[j]]) !== null && _a !== void 0 ? _a : 0); //if the qeuaiton sdeosnt have the unknown, set its coeff to 0 in the A matrix
-        }
-        b.push(EQNs[i].b);
-        console.log(EQNs[i].toString());
-    }
-    //solving the system
-    let b_vector = ml_matrix_1.Matrix.columnVector(b);
-    let solved_x = ml_matrix_1.solve(A, b_vector);
-    for (let i = 0; i < dim; i++) {
-        console.log(`${x[i]} = ${solved_x.get(i, 0)}`);
-    }
-    /*for(let unknown of x){
-        for(let object in [...getMasses(), ...getPulleys()]){
-        }
-    }*/
-    console.dir(x);
-    console.dir([...getMasses(), ...getPulleys()]);
+    //     clearNumberings()
+    //     let ropeCount: number = 0
+    //     let massCount: number = 0
+    //     let pulleyCount: number = 0
+    // 
+    //     for (let ropeSegment of getRopeSegments()) {
+    //         if (ropeSegment.ropeNumber === undefined) {
+    //             ropeCount++
+    //             ropeSegment.ropeNumber = ropeCount
+    //             ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
+    //             setTensionIDsOfLinkedRopeSegments(ropeSegment, ropeCount)
+    //         }
+    //         ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
+    //     }
+    // 
+    // 
+    //     //TODO: need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
+    // 
+    //     for (let mass of getMasses()) { //labeling the masses (m1, m2, etc.)
+    //         massCount++
+    //         mass.massNumber = massCount
+    //         mass.htmlElement.innerText = 'm' + mass.massNumber.toString()
+    //     }
+    // 
+    //     for (let pulley of getPulleys()) {//labeling the pulleys (P1, P2, etc.)
+    //         pulleyCount++
+    //         pulley.pulleyNumber = pulleyCount
+    //         pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString()
+    //     }
+    // 
+    //     let dim = ropeCount + massCount + pulleyCount //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
+    //     let EQNs: Equation[] = [] //holds the equations of motion in string form
+    //     let A = Matrix.zeros(dim, dim)
+    //     let x = [] //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
+    //     let b = []
+    // 
+    //     //generating equations of motion for masses
+    //     for (let mass of getMasses()) {
+    //         let EQN: Equation = new Equation();
+    //         let unknown: string = `a_m${mass.massNumber}`
+    //         x.push(unknown)
+    // 
+    //         if (!(mass.fixed || mass.mass == 0)) {
+    //             EQN.addTerm(-mass.mass, unknown)
+    //             EQN.b = mass.mass * 9.81
+    //         }
+    // 
+    //         let visitedRopes: number[] = []
+    //         for (let ropeSegment of getRopeSegments()) {
+    //             if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
+    //                 if (ropeSegment.pullsStraightUpOn(mass)) {
+    //                     EQN.addTerm(1, `T${ropeSegment.ropeNumber}`)
+    //                     visitedRopes.push(ropeSegment.ropeNumber)
+    //                 }
+    //                 else if (ropeSegment.pullsStraightDownOn(mass)) {
+    //                     EQN.addTerm(-1, `T${ropeSegment.ropeNumber}`)
+    //                     visitedRopes.push(ropeSegment.ropeNumber)
+    // 
+    //                 }
+    //             }
+    //         }
+    //         EQNs.push(EQN)
+    //     }
+    // 
+    //     //generating equations of motion for pulleys
+    //     for (let pulley of getPulleys()) {
+    //         let EQN: Equation = new Equation();
+    //         let unknown: string = `a_P${pulley.pulleyNumber}`
+    //         x.push(unknown)
+    // 
+    //         if (!pulley.fixed) {
+    //             EQN.addTerm(-pulley.mass, unknown)
+    //             EQN.b = pulley.mass * 9.81
+    //         }
+    // 
+    //         let visitedRopes: number[] = []
+    //         for (let ropeSegment of getRopeSegments()) {
+    //             if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
+    //                 if (ropeSegment.loopsUpAround(pulley)) {
+    //                     EQN.addTerm(2, ropeSegment.ropeLabel.innerText)
+    //                     visitedRopes.push(ropeSegment.ropeNumber)
+    //                 }
+    //                 else if (ropeSegment.loopsDownAround(pulley)) {
+    //                     EQN.addTerm(-2, ropeSegment.ropeLabel.innerText)
+    //                     visitedRopes.push(ropeSegment.ropeNumber)
+    //                 }
+    //                 else if (ropeSegment.pullsStraightUpOn(pulley)) {
+    //                     EQN.addTerm(1, ropeSegment.ropeLabel.innerText)
+    //                     visitedRopes.push(ropeSegment.ropeNumber)
+    //                 }
+    //                 else if (ropeSegment.pullsStraightDownOn(pulley)) {
+    //                     EQN.addTerm(-1, ropeSegment.ropeLabel.innerText)
+    //                     visitedRopes.push(ropeSegment.ropeNumber)
+    //                 }
+    //             }
+    //         }
+    //         EQNs.push(EQN)
+    //     }
+    // 
+    //     //generating the conservation of string equations
+    //     for (let i = 1; i <= ropeCount; i++) {
+    //         let EQN: Equation = new Equation();
+    //         let unknown: string = `T${i}`
+    //         EQN.b = 0
+    //         x.push(unknown)
+    // 
+    //         let visitedPulleys: number[] = []
+    //         let visitedMasses: number[] = []
+    // 
+    //         for (let ropeSegment of getRopeSegments()) {
+    //             if (ropeSegment.ropeNumber == i) { // only consider the rope segments that make up the same greater rope
+    //                 for (let pulley of getPulleys()) {
+    //                     if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleration due to multiple rope segments that make up the same rope
+    //                         if (ropeSegment.loopsUpAround(pulley)) {
+    //                             EQN.addTerm(2, `a_P${pulley.pulleyNumber}`)
+    //                             visitedPulleys.push(pulley.pulleyNumber)
+    //                         }
+    //                         else if (ropeSegment.loopsDownAround(pulley)) {
+    //                             EQN.addTerm(-2, `a_P${pulley.pulleyNumber}`)
+    //                             visitedPulleys.push(pulley.pulleyNumber)
+    //                         }
+    //                         else if (ropeSegment.pullsStraightUpOn(pulley)) {
+    //                             EQN.addTerm(1, `a_P${pulley.pulleyNumber}`)
+    //                             visitedPulleys.push(pulley.pulleyNumber)
+    //                         }
+    //                         else if (ropeSegment.pullsStraightDownOn(pulley)) {
+    //                             EQN.addTerm(-1, `a_P${pulley.pulleyNumber}`)
+    //                             visitedPulleys.push(pulley.pulleyNumber)
+    //                         }
+    //                     }
+    //                 }
+    // 
+    //                 for (let mass of getMasses()) {
+    //                     if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleration due to multiple rope segments that make up the same rope
+    //                         if (ropeSegment.pullsStraightUpOn(mass)) {
+    //                             EQN.addTerm(1, `a_m${mass.massNumber}`)
+    //                             visitedMasses.push(mass.massNumber)
+    //                         }
+    //                         else if (ropeSegment.pullsStraightDownOn(mass)) {
+    //                             EQN.addTerm(-1, `a_m${mass.massNumber}`)
+    //                             visitedMasses.push(mass.massNumber)
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         EQNs.push(EQN)
+    //     }
+    // 
+    //     //filling out the A matrix
+    //     for (let i = 0; i < dim; i++) {
+    //         for (let j = 0; j < dim; j++) {
+    //             A.set(i, j, EQNs[i].coeffDict[x[j]] ?? 0); //if the qeuaiton sdeosnt have the unknown, set its coeff to 0 in the A matrix
+    //         }
+    //         b.push(EQNs[i].b)
+    //         console.log(EQNs[i].toString())
+    //     }
+    // 
+    //     //solving the system
+    //     let b_vector = Matrix.columnVector(b)
+    //     let solved_x = solve(A, b_vector)
+    //     for (let i = 0; i < dim; i++) {
+    //         console.log(`${x[i]} = ${solved_x.get(i, 0)}`)
+    //     }
+    // 
+    //     /*for(let unknown of x){
+    //         for(let object in [...getMasses(), ...getPulleys()]){
+    //         }
+    //     }*/
+    //     console.dir(x)
+    //     console.dir([...getMasses(), ...getPulleys()])
+    // 
+    // 
+    //     
+    //     // getMasses().filter(item => massNumber === num)[0]
 }
 document.getElementById("calculate-button").onclick = calculate;
 function animate() {
