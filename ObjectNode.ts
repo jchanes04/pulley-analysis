@@ -49,7 +49,7 @@ class ObjectNode {
         this.htmlElement.classList.add("fixed-node")
     }
 
-    move(pos: Position, alreadyMovedParent :boolean) {
+    move(pos: Position, alreadyMovedParent: boolean) {
         this.pos = pos
 
         this.htmlElement.style.left = (pos.x - this.htmlElement.offsetWidth / 2) + 'px'

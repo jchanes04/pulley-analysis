@@ -107,7 +107,6 @@ class RopeSegment {
             this.htmlElement.style.left = (left - 1) + 'px';
         }
         else if (nodeID === this.endNode.id) {
-            console.log("end code running");
             let xDiff = this.startNode.pos.x - pos.x;
             let yDiff = this.startNode.pos.y - pos.y;
             let length = Math.sqrt(Math.pow(xDiff, 2) + Math.pow(yDiff, 2));

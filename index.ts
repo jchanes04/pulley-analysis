@@ -1,3 +1,5 @@
+//TODO: remove "magic numbers" from positioning functions of all classes
+
 type Position = {
     x: number,
     y: number
@@ -28,10 +30,12 @@ var ropeLabel: HTMLElement
 
 type Edit = {
     type: "create" | "delete" | "move",
-    objectID: string,
+    objectIDs: string[],
     data?: {
         objectData?: SimulationObject,
-        nodesToRender?: ObjectNode[]
+        nodesToRender?: ObjectNode[],
+        oldPosition?: Position,
+        newPosition?: Position
     }
 }
 
@@ -57,26 +61,42 @@ class CommandManager {
 
             switch (undone.type) {
                 case "create": {
-                    let createdElement = globalElementList[undone.objectID]
+                    let createdElement = globalElementList[undone.objectIDs[0]]
 
                     if (!(createdElement instanceof ObjectNode)) {
                         let nodesToDelete = createdElement.delete()
-                        delete globalElementList[undone.objectID]
+                        delete globalElementList[undone.objectIDs[0]]
                         nodesToDelete.forEach(node => {
                             node.delete()
                             delete globalElementList[node.id]
                         })
                         this.undoStack.unshift({
                             type: "create",
-                            objectID: undone.objectID,
+                            objectIDs: undone.objectIDs,
                             data: {
                                 objectData: createdElement,
                                 nodesToRender: nodesToDelete
                             }
                         })
                     }
+                    break
                 }
+                case "move": {
+                    let movedNodes = undone.objectIDs.map(id => globalElementList[id])
 
+                    movedNodes.forEach(node => {
+                        (<ObjectNode>node).move(undone.data!.oldPosition!, false)
+                    })
+                    this.undoStack.unshift({
+                        type: "move",
+                        objectIDs: undone.objectIDs,
+                        data: {
+                            oldPosition: undone.data?.oldPosition,
+                            newPosition: undone.data?.newPosition
+                        }
+                    })
+                    break
+                }
             }
         }
     }
@@ -91,11 +111,31 @@ class CommandManager {
                     redone.data?.nodesToRender?.forEach(node => {
                         node.render()
                     })
-                    globalElementList[redone.objectID] = redone.data?.objectData!
+                    globalElementList[redone.objectIDs[0]] = redone.data?.objectData!
+                    redone.data?.nodesToRender?.forEach(node => {
+                        globalElementList[node.id] = node
+                    })
                     this.editStack.unshift({
                         type: "create",
-                        objectID: redone.objectID
+                        objectIDs: redone.objectIDs
                     })
+                    break
+                }
+                case "move": {
+                    let movedNodes = redone.objectIDs.map(id => globalElementList[id])
+
+                    movedNodes.forEach(node => {
+                        (<ObjectNode>node).move(redone.data!.newPosition!, false)
+                    })
+                    this.editStack.unshift({
+                        type: "move",
+                        objectIDs: redone.objectIDs,
+                        data: {
+                            oldPosition: redone.data?.oldPosition,
+                            newPosition: redone.data?.newPosition
+                        }
+                    })
+                    break
                 }
             }
         }
@@ -192,7 +232,7 @@ var massScalingFunction = (event: MouseEvent) => {
         xDiff = Math.max(Math.abs(mousePos.x - firstClickPos.x), snapDistance)
         yDiff = Math.max(Math.abs(mousePos.y - firstClickPos.y), snapDistance)
     }
-    console.log(`X: ${xDiff}    Y: ${yDiff}`)
+    //console.log(`X: ${xDiff}    Y: ${yDiff}`) //DEBUG
     scalingHtmlElement.style.width = Math.max(2 * xDiff - 2, 0) + 'px'
     scalingHtmlElement.style.height = Math.max(2 * yDiff - 2, 0) + 'px'
     scalingHtmlElement.style.top = firstClickPos.y - yDiff - 1 + 'px'
@@ -239,7 +279,7 @@ workspace.onclick = (event: MouseEvent) => {
 
                 editManager.add({
                     type: "create",
-                    objectID: newPulley.id
+                    objectIDs: [newPulley.id]
                 })
 
                 mode = 'f'
@@ -273,7 +313,7 @@ workspace.onclick = (event: MouseEvent) => {
 
                 editManager.add({
                     type: "create",
-                    objectID: newRopeSegment.id,
+                    objectIDs: [newRopeSegment.id],
                 })
                 mode = 'f'
             }
@@ -304,7 +344,7 @@ workspace.onclick = (event: MouseEvent) => {
 
                     editManager.add({
                         type: "create",
-                        objectID: newMass.id
+                        objectIDs: [newMass.id]
                     })
                 }
 
@@ -339,6 +379,16 @@ workspace.onmousedown = (event) => {
         function mouseupListener(mouseupEvent: MouseEvent) {
             workspace.removeEventListener("mousemove", moveListener)
             workspace.removeEventListener("mouseup", mouseupListener)
+            if (currentSnappedPos.x !== pos.x || currentSnappedPos.y !== pos.y) {
+                editManager.add({
+                    type: "move",
+                    objectIDs: nodes.map(node => node.id),
+                    data: {
+                        oldPosition: pos,
+                        newPosition: currentSnappedPos
+                    }
+                })
+            }
         }
         
         workspace.addEventListener("mousemove", moveListener)
@@ -585,22 +635,23 @@ function calculate() {
              A.set(i, j, EQNs[i].coeffDict[x[j]] ?? 0); //if the qeuaiton sdeosnt have the unknown, set its coeff to 0 in the A matrix
          }
          b.push(EQNs[i].b)
-         console.log(EQNs[i].toString())
+         //console.log(EQNs[i].toString()) //DEBUG
      }
  
      //solving the system
      let b_vector = Matrix.columnVector(b)
      let solved_x = solve(A, b_vector)
      for (let i = 0; i < dim; i++) {
-         console.log(`${x[i]} = ${solved_x.get(i, 0)}`)
+         //console.log(`${x[i]} = ${solved_x.get(i, 0)}`) //DEBUG
      }
  
      /*for(let unknown of x){
          for(let object in [...getMasses(), ...getPulleys()]){
          }
      }*/
-     console.dir(x)
-     console.dir([...getMasses(), ...getPulleys()])
+     
+     //console.dir(x) //DEBUG
+     //console.dir([...getMasses(), ...getPulleys()]) //DEBUG
  
  
      

@@ -40,6 +40,7 @@ body {
 
 #toolbar ul li img {
     z-index: 5;
+    -webkit-user-drag: none;
 }
 
 #toolbar ul li input {

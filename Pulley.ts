@@ -63,8 +63,9 @@ class Pulley {
             this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px'
             this.htmlElement.style.left = (pos.x - 1 - 2 * this.radius) + 'px'
 
-            this.centerNode.move(this.pos, true)
-            this.leftNode.move({x: pos.x - 2 * this.radius, y: pos.y}, true)
+            // this.centerNode.move(this.pos, true)
+            // this.leftNode.move({x: pos.x - 2 * this.radius, y: pos.y}, true)
+            return [this.centerNode.pos, this.leftNode.pos]
         } else if (nodeID === this.centerNode.id) {
             this.pos = pos
 
