@@ -1,128 +1,43 @@
 "use strict";
-//TODO: remove "magic numbers" from positioning functions of all classes
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ObjectNode = exports.Mass = exports.RopeSegment = exports.Pulley = exports.ctx = void 0;
 var snapDistance = 30;
 const workspace = document.getElementById("workspace");
 const gridCanvas = document.getElementById("grid-canvas");
-var mode = 'f'; //'f' for first click     's' for second click
+const mainCanvas = document.getElementById("main-canvas");
+mainCanvas.width = 10000;
+mainCanvas.height = 6000;
+const ctx = mainCanvas.getContext("2d");
+exports.ctx = ctx;
+var clickMode = 'f'; //'f' for first click     's' for second click
 var firstClickPos;
+var status = "editing";
 var globalElementList = {};
 const Pulley = require("./Pulley");
+exports.Pulley = Pulley;
 const RopeSegment = require("./RopeSegment");
+exports.RopeSegment = RopeSegment;
 const Mass = require("./Mass");
+exports.Mass = Mass;
 const ObjectNode = require("./ObjectNode");
-const Equation = require("./Equation");
-const underscore_1 = __importDefault(require("underscore"));
-const ml_matrix_1 = require("ml-matrix");
+exports.ObjectNode = ObjectNode;
+globalElementList["12345"] = new Pulley({ x: 2000, y: 2000 }, 600);
 var scalingHtmlElement;
 var ropeLabel;
-class CommandManager {
-    constructor() {
-        this.editStack = []; // edits that have been made, can be undone
-        this.undoStack = []; // edits that have already been undone and can be redone
-    }
-    add(edit) {
-        this.editStack.unshift(edit);
-        this.undoStack = [];
-    }
-    undo() {
-        var _a, _b;
-        if (this.editStack.length > 0) {
-            let undone = this.editStack.shift();
-            switch (undone.type) {
-                case "create": {
-                    let createdElement = globalElementList[undone.objectIDs[0]];
-                    if (!(createdElement instanceof ObjectNode)) {
-                        let nodesToDelete = createdElement.delete();
-                        delete globalElementList[undone.objectIDs[0]];
-                        nodesToDelete.forEach(node => {
-                            node.delete();
-                            delete globalElementList[node.id];
-                        });
-                        this.undoStack.unshift({
-                            type: "create",
-                            objectIDs: undone.objectIDs,
-                            data: {
-                                objectData: createdElement,
-                                nodesToRender: nodesToDelete
-                            }
-                        });
-                    }
-                    break;
-                }
-                case "move": {
-                    let movedNodes = undone.objectIDs.map(id => globalElementList[id]);
-                    movedNodes.forEach(node => {
-                        node.move(undone.data.oldPosition, false);
-                    });
-                    this.undoStack.unshift({
-                        type: "move",
-                        objectIDs: undone.objectIDs,
-                        data: {
-                            oldPosition: (_a = undone.data) === null || _a === void 0 ? void 0 : _a.oldPosition,
-                            newPosition: (_b = undone.data) === null || _b === void 0 ? void 0 : _b.newPosition
-                        }
-                    });
-                    break;
-                }
-            }
-        }
-    }
-    redo() {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-        if (this.undoStack.length > 0) {
-            let redone = this.undoStack.shift();
-            switch (redone.type) {
-                case "create": {
-                    (_b = (_a = redone.data) === null || _a === void 0 ? void 0 : _a.objectData) === null || _b === void 0 ? void 0 : _b.render();
-                    (_d = (_c = redone.data) === null || _c === void 0 ? void 0 : _c.nodesToRender) === null || _d === void 0 ? void 0 : _d.forEach(node => {
-                        node.render();
-                    });
-                    globalElementList[redone.objectIDs[0]] = (_e = redone.data) === null || _e === void 0 ? void 0 : _e.objectData;
-                    (_g = (_f = redone.data) === null || _f === void 0 ? void 0 : _f.nodesToRender) === null || _g === void 0 ? void 0 : _g.forEach(node => {
-                        globalElementList[node.id] = node;
-                    });
-                    this.editStack.unshift({
-                        type: "create",
-                        objectIDs: redone.objectIDs
-                    });
-                    break;
-                }
-                case "move": {
-                    let movedNodes = redone.objectIDs.map(id => globalElementList[id]);
-                    movedNodes.forEach(node => {
-                        node.move(redone.data.newPosition, false);
-                    });
-                    this.editStack.unshift({
-                        type: "move",
-                        objectIDs: redone.objectIDs,
-                        data: {
-                            oldPosition: (_h = redone.data) === null || _h === void 0 ? void 0 : _h.oldPosition,
-                            newPosition: (_j = redone.data) === null || _j === void 0 ? void 0 : _j.newPosition
-                        }
-                    });
-                    break;
-                }
-            }
-        }
-    }
-}
-const editManager = new CommandManager();
+// import CommandManager = require('./CommandManager')
+// const editManager = new CommandManager()
 document.getElementById("undo").onclick = () => {
-    editManager.undo();
+    // editManager.undo()
 };
 document.getElementById("redo").onclick = () => {
-    editManager.redo();
+    // editManager.redo()
 };
 document.onkeyup = (e) => {
     if (e.ctrlKey && e.code === "KeyZ") {
-        editManager.undo();
+        // editManager.undo()
     }
     else if (e.ctrlKey && e.code === "KeyY") {
-        editManager.redo();
+        // editManager.redo()
     }
 };
 (function drawGrid() {
@@ -144,423 +59,70 @@ document.onkeyup = (e) => {
         ctx.stroke();
     }
 })();
-var pulleyScalingFunction = (event) => {
-    let mousePos = getMousePos(event);
-    let radius = getSnappedDist(firstClickPos, mousePos);
-    scalingHtmlElement.style.width = Math.max(2 * radius - 2, 0) + 'px';
-    scalingHtmlElement.style.height = Math.max(2 * radius - 2, 0) + 'px';
-    scalingHtmlElement.style.top = (firstClickPos.y - 1 - radius) + 'px';
-    scalingHtmlElement.style.left = (firstClickPos.x - 1 - radius) + 'px';
-};
-var ropeSegmentScalingFunction = (event) => {
-    let mousePos = getMousePos(event);
-    let length = getDist(firstClickPos, mousePos);
-    let xDiff = firstClickPos.x - mousePos.x;
-    let yDiff = firstClickPos.y - mousePos.y;
-    let angle = 180 / Math.PI * Math.acos(yDiff / length);
-    if (xDiff > 0) {
-        angle *= -1;
-    }
-    if (mousePos.y > firstClickPos.y) {
-        var top = (mousePos.y - firstClickPos.y) / 2 + firstClickPos.y;
-    }
-    else {
-        var top = (firstClickPos.y - mousePos.y) / 2 + mousePos.y;
-    }
-    top -= length / 2;
-    if (mousePos.x > firstClickPos.x) {
-        var left = (mousePos.x - firstClickPos.x) / 2 + firstClickPos.x;
-    }
-    else {
-        var left = (firstClickPos.x - mousePos.x) / 2 + mousePos.x;
-    }
-    scalingHtmlElement.style.height = length + 'px';
-    scalingHtmlElement.style.top = top + 'px';
-    scalingHtmlElement.style.left = (left - 1) + 'px';
-    scalingHtmlElement.style.transform = `rotate(${angle}deg)`;
-};
-var massScalingFunction = (event) => {
-    let mousePos = getMousePos(event);
-    let xDiff;
-    let yDiff;
-    if (getDist(mousePos, firstClickPos) < snapDistance) {
-        xDiff = 0;
-        yDiff = 0;
-    }
-    else {
-        xDiff = Math.max(Math.abs(mousePos.x - firstClickPos.x), snapDistance);
-        yDiff = Math.max(Math.abs(mousePos.y - firstClickPos.y), snapDistance);
-    }
-    //console.log(`X: ${xDiff}    Y: ${yDiff}`) //DEBUG
-    scalingHtmlElement.style.width = Math.max(2 * xDiff - 2, 0) + 'px';
-    scalingHtmlElement.style.height = Math.max(2 * yDiff - 2, 0) + 'px';
-    scalingHtmlElement.style.top = firstClickPos.y - yDiff - 1 + 'px';
-    scalingHtmlElement.style.left = firstClickPos.x - xDiff - 1 + 'px';
-};
-var radios = [...document.querySelectorAll('input[name="selected-object"]')];
-radios.forEach(radio => {
-    radio.onchange = () => {
-        var _a;
-        mode = "f";
-        workspace.removeEventListener('mousemove', pulleyScalingFunction);
-        workspace.removeEventListener('mousemove', massScalingFunction);
-        workspace.removeEventListener('mousemove', ropeSegmentScalingFunction);
-        (_a = scalingHtmlElement === null || scalingHtmlElement === void 0 ? void 0 : scalingHtmlElement.remove) === null || _a === void 0 ? void 0 : _a.call(scalingHtmlElement);
-    };
-});
-workspace.onclick = (event) => {
-    let selectedObject = document.querySelector('input[name="selected-object"]:checked').value; //getting the pulley/rope/mass type of selected-object
-    let pos = getMousePos(event); // get position of mouse click
-    switch (selectedObject) {
-        case "pulley": {
-            let mass = parseFloat(document.getElementById("mass-input").value) || 1;
-            if (mode === 'f') {
-                firstClickPos = pos;
-                scalingHtmlElement = document.createElement("div");
-                scalingHtmlElement.classList.add("scaling-pulley");
-                workspace.appendChild(scalingHtmlElement);
-                workspace.addEventListener('mousemove', pulleyScalingFunction);
-                mode = 's';
-            }
-            else if (mode === 's') {
-                workspace.removeEventListener('mousemove', pulleyScalingFunction);
-                scalingHtmlElement.remove();
-                let newPulley = new Pulley(firstClickPos, getSnappedDist(firstClickPos, pos), { mass: mass });
-                setID(newPulley);
-                setID(newPulley.leftNode);
-                setID(newPulley.rightNode);
-                setID(newPulley.centerNode);
-                editManager.add({
-                    type: "create",
-                    objectIDs: [newPulley.id]
-                });
-                mode = 'f';
-            }
-            break;
-        }
-        case "rope-segment": {
-            if (mode === 'f') { //placing the first node
-                firstClickPos = pos;
-                scalingHtmlElement = document.createElement("div");
-                scalingHtmlElement.classList.add("scaling-rope-segment");
-                workspace.appendChild(scalingHtmlElement);
-                workspace.addEventListener("mousemove", ropeSegmentScalingFunction);
-                mode = 's';
-            }
-            else if (mode === 's') { //first node has been placed (and is on empty space), now placing the second node of rope segment
-                workspace.removeEventListener("mousemove", ropeSegmentScalingFunction);
-                scalingHtmlElement.remove();
-                let newRopeSegment = new RopeSegment({
-                    startX: firstClickPos.x,
-                    startY: firstClickPos.y,
-                    endX: pos.x,
-                    endY: pos.y
-                });
-                setID(newRopeSegment);
-                setID(newRopeSegment.startNode);
-                setID(newRopeSegment.endNode);
-                editManager.add({
-                    type: "create",
-                    objectIDs: [newRopeSegment.id],
-                });
-                mode = 'f';
-            }
-            break;
-        }
-        case "mass": {
-            let mass = parseFloat(document.getElementById("mass-input").value) || 1;
-            if (mode === 'f') { //placing the mass
-                firstClickPos = pos;
-                scalingHtmlElement = document.createElement("div");
-                scalingHtmlElement.classList.add("scaling-mass");
-                workspace.appendChild(scalingHtmlElement);
-                workspace.addEventListener("mousemove", massScalingFunction);
-                mode = 's';
-            }
-            else if (mode === 's') { //second click is done to size the mass
-                workspace.removeEventListener('mousemove', massScalingFunction);
-                scalingHtmlElement.remove();
-                let xDiff = Math.abs(firstClickPos.x - pos.x);
-                let yDiff = Math.abs(firstClickPos.y - pos.y);
-                if (xDiff !== 0 && yDiff !== 0) {
-                    let newMass = new Mass(firstClickPos, { width: xDiff * 2, height: yDiff * 2 }, mass);
-                    setID(newMass);
-                    setID(newMass.centerNode);
-                    editManager.add({
-                        type: "create",
-                        objectIDs: [newMass.id]
-                    });
-                }
-                mode = 'f';
-            }
-            break;
-        }
-        case "fix-node": {
-            let nodes = getNodesAtPos(pos); //getting all the nodes that have the same position as "pos"
-            nodes.forEach(node => { node.fixNode(); });
-        }
-    }
-};
-workspace.onmousedown = (event) => {
-    let selectedObject = document.querySelector('input[name="selected-object"]:checked').value; //getting the pulley/rope/mass type of selected-object
-    let pos = getMousePos(event);
-    if (selectedObject === "move-node") {
-        let nodes = getNodesAtPos(pos);
-        let currentSnappedPos = pos;
-        function moveListener(moveEvent) {
-            if (getMousePos(moveEvent).x !== currentSnappedPos.x || getMousePos(moveEvent).y !== currentSnappedPos.y) {
-                nodes.forEach(node => {
-                    node.move(getMousePos(moveEvent), false);
-                });
-                currentSnappedPos = getMousePos(moveEvent);
-            }
-        }
-        function mouseupListener(mouseupEvent) {
-            workspace.removeEventListener("mousemove", moveListener);
-            workspace.removeEventListener("mouseup", mouseupListener);
-            if (currentSnappedPos.x !== pos.x || currentSnappedPos.y !== pos.y) {
-                editManager.add({
-                    type: "move",
-                    objectIDs: nodes.map(node => node.id),
-                    data: {
-                        oldPosition: pos,
-                        newPosition: currentSnappedPos
-                    }
-                });
-            }
-        }
-        workspace.addEventListener("mousemove", moveListener);
-        workspace.addEventListener("mouseup", mouseupListener);
-    }
-};
-function setID(element) {
-    let id;
-    do {
-        id = (Math.floor(Math.random() * 1000000)).toString(); //generating a random ID from 0-999999
-    } while (id in globalElementList);
-    element.setID(id);
-    globalElementList[id] = element;
+var lastFrame = 0;
+var fpsTime = 0;
+var frameCount = 0;
+var fps = 0;
+function init() {
+    mainCanvas.onmousedown = mainMousedownHandler;
+    mainCanvas.onmouseup = mainMouseupHandler;
+    mainCanvas.onmousemove = mainMousemoveHandler;
+    mainCanvas.onmouseout = mainMouseoutHandler;
+    main(0);
 }
-function getMousePos(evt) {
-    var rect = workspace.getBoundingClientRect();
+function main(currentFrame) {
+    window.requestAnimationFrame(main);
+    update(currentFrame);
+    render();
+}
+function update(currentFrame) {
+    let dt = (currentFrame - lastFrame) / 1000;
+    lastFrame = currentFrame;
+    for (let id in globalElementList) {
+        if (status === "animating")
+            globalElementList[id].update(dt);
+    }
+    updateFps(dt);
+}
+function updateFps(dt) {
+    if (fpsTime > 0.25) {
+        // Calculate fps
+        fps = Math.round(frameCount / fpsTime);
+        // Reset time and framecount
+        fpsTime = 0;
+        frameCount = 0;
+    }
+    // Increase time and framecount
+    fpsTime += dt;
+    frameCount++;
+}
+function render() {
+    drawWorkspace();
+    for (let id in globalElementList) {
+        if (status === "editing" || !(globalElementList[id] instanceof ObjectNode))
+            globalElementList[id].render();
+    }
+    ctx.stroke();
+}
+function drawWorkspace() {
+    // ctx.fillStyle = "#303030"
+    // ctx.fillRect(0, 0, mainCanvas.width, 65)
+    // ctx.fillStyle = "#ffffff"
+    // ctx.font = "24px Verdana"
+    // ctx.fillText("Text text", 10, 25)
+    // ctx.fillStyle = "blue"
+    // ctx.font = "14px Arial"
+    // ctx.fillText("fps: " + fps, 10, 35)
+}
+function mainMousedownHandler(event) { }
+function mainMousemoveHandler(event) { }
+function mainMouseoutHandler(event) { }
+function mainMouseupHandler(event) { }
+function getMousePos(canvas, e) {
+    var rect = canvas.getBoundingClientRect();
     return {
-        x: Math.round((evt.clientX - rect.left) / snapDistance) * snapDistance,
-        y: Math.round((evt.clientY - rect.top) / snapDistance) * snapDistance
+        x: Math.round((e.clientX - rect.left) / (rect.right - rect.left) * canvas.width),
+        y: Math.round((e.clientY - rect.top) / (rect.bottom - rect.top) * canvas.height)
     };
 }
-function getDist(pos1, pos2) {
-    return Math.sqrt(Math.pow((pos1.x - pos2.x), 2) + Math.pow((pos1.y - pos2.y), 2));
-}
-function getSnappedDist(pos1, pos2) {
-    var unsnappedDist = Math.sqrt(Math.pow((pos1.x - pos2.x), 2) + Math.pow((pos1.y - pos2.y), 2));
-    return Math.round(unsnappedDist / snapDistance) * snapDistance;
-}
-function getNodesAtPos(pos) {
-    let allObjects = Object.values(globalElementList);
-    return allObjects.filter((item) => {
-        return (item instanceof ObjectNode && underscore_1.default.isEqual(item.pos, pos));
-    });
-}
-function getRopeSegments() {
-    let allObjects = Object.values(globalElementList);
-    return allObjects.filter((item) => {
-        return (item instanceof RopeSegment);
-    });
-}
-function getPulleys() {
-    let allObjects = Object.values(globalElementList);
-    return allObjects.filter((item) => {
-        return (item instanceof Pulley);
-    });
-}
-function getMasses() {
-    let allObjects = Object.values(globalElementList);
-    return allObjects.filter((item) => {
-        return (item instanceof Mass);
-    });
-}
-function setTensionIDsOfLinkedRopeSegments(ropeSegment1, ropeNumber) {
-    for (let pulley of getPulleys()) { //iterate over all pulleys
-        if (ropeSegment1.loopsAround(pulley)) {
-            for (let ropeSegment2 of getRopeSegments()) {
-                if (ropeSegment2.ropeNumber === undefined && ropeSegment2.loopsAround(pulley)) {
-                    ropeSegment2.ropeNumber = ropeNumber;
-                    setTensionIDsOfLinkedRopeSegments(ropeSegment2, ropeNumber);
-                }
-            }
-        }
-    }
-}
-function clearNumberings() {
-    for (let ropeSegment of getRopeSegments()) {
-        ropeSegment.ropeNumber = undefined;
-        ropeSegment.ropeLabel.innerText = undefined;
-    }
-    for (let mass of getMasses()) {
-        mass.massNumber = undefined;
-        mass.htmlElement.innerText = undefined;
-    }
-    for (let pulley of getPulleys()) {
-        pulley.pulleyNumber = undefined;
-        pulley.pulleyLabel.innerText = undefined;
-    }
-}
-function calculate() {
-    var _a;
-    clearNumberings();
-    let ropeCount = 0;
-    let massCount = 0;
-    let pulleyCount = 0;
-    for (let ropeSegment of getRopeSegments()) {
-        if (ropeSegment.ropeNumber === undefined) {
-            ropeCount++;
-            ropeSegment.ropeNumber = ropeCount;
-            ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
-            setTensionIDsOfLinkedRopeSegments(ropeSegment, ropeCount);
-        }
-        ropeSegment.ropeLabel.innerText = 'T' + ropeSegment.ropeNumber.toString();
-    }
-    //TODO: need to fix pulleys and masses if their centers are connected to a ropesegment that has a fixed node
-    for (let mass of getMasses()) { //labeling the masses (m1, m2, etc.)
-        massCount++;
-        mass.massNumber = massCount;
-        mass.htmlElement.innerText = 'm' + mass.massNumber.toString();
-    }
-    for (let pulley of getPulleys()) { //labeling the pulleys (P1, P2, etc.)
-        pulleyCount++;
-        pulley.pulleyNumber = pulleyCount;
-        pulley.pulleyLabel.innerText = 'P' + pulley.pulleyNumber.toString();
-    }
-    let dim = ropeCount + massCount + pulleyCount; //1 F=ma equation for each mass. 1 F=ma equation for each pulley. 1 string conservation equaiton for each rope
-    let EQNs = []; //holds the equations of motion in string form
-    let A = ml_matrix_1.Matrix.zeros(dim, dim);
-    let x = []; //holds the unknowns (acceleration of pulleys, acceleration of masses, tension in ropes)
-    let b = [];
-    //generating equations of motion for masses
-    for (let mass of getMasses()) {
-        let EQN = new Equation();
-        let unknown = `a_m${mass.massNumber}`;
-        x.push(unknown);
-        if (!(mass.fixed || mass.mass == 0)) {
-            EQN.addTerm(-mass.mass, unknown);
-            EQN.b = mass.mass * 9.81;
-        }
-        let visitedRopes = [];
-        for (let ropeSegment of getRopeSegments()) {
-            if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
-                if (ropeSegment.pullsStraightUpOn(mass)) {
-                    EQN.addTerm(1, `T${ropeSegment.ropeNumber}`);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.pullsStraightDownOn(mass)) {
-                    EQN.addTerm(-1, `T${ropeSegment.ropeNumber}`);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-            }
-        }
-        EQNs.push(EQN);
-    }
-    //generating equations of motion for pulleys
-    for (let pulley of getPulleys()) {
-        let EQN = new Equation();
-        let unknown = `a_P${pulley.pulleyNumber}`;
-        x.push(unknown);
-        if (!pulley.fixed) {
-            EQN.addTerm(-pulley.mass, unknown);
-            EQN.b = pulley.mass * 9.81;
-        }
-        let visitedRopes = [];
-        for (let ropeSegment of getRopeSegments()) {
-            if (!visitedRopes.includes(ropeSegment.ropeNumber)) { // dont double count the tension due to multiple rope segments that make up the same rope
-                if (ropeSegment.loopsUpAround(pulley)) {
-                    EQN.addTerm(2, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.loopsDownAround(pulley)) {
-                    EQN.addTerm(-2, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.pullsStraightUpOn(pulley)) {
-                    EQN.addTerm(1, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-                else if (ropeSegment.pullsStraightDownOn(pulley)) {
-                    EQN.addTerm(-1, ropeSegment.ropeLabel.innerText);
-                    visitedRopes.push(ropeSegment.ropeNumber);
-                }
-            }
-        }
-        EQNs.push(EQN);
-    }
-    //generating the conservation of string equations
-    for (let i = 1; i <= ropeCount; i++) {
-        let EQN = new Equation();
-        let unknown = `T${i}`;
-        EQN.b = 0;
-        x.push(unknown);
-        let visitedPulleys = [];
-        let visitedMasses = [];
-        for (let ropeSegment of getRopeSegments()) {
-            if (ropeSegment.ropeNumber == i) { // only consider the rope segments that make up the same greater rope
-                for (let pulley of getPulleys()) {
-                    if (!visitedPulleys.includes(pulley.pulleyNumber)) { // dont double count the pulley acceleration due to multiple rope segments that make up the same rope
-                        if (ropeSegment.loopsUpAround(pulley)) {
-                            EQN.addTerm(2, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                        else if (ropeSegment.loopsDownAround(pulley)) {
-                            EQN.addTerm(-2, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                        else if (ropeSegment.pullsStraightUpOn(pulley)) {
-                            EQN.addTerm(1, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                        else if (ropeSegment.pullsStraightDownOn(pulley)) {
-                            EQN.addTerm(-1, `a_P${pulley.pulleyNumber}`);
-                            visitedPulleys.push(pulley.pulleyNumber);
-                        }
-                    }
-                }
-                for (let mass of getMasses()) {
-                    if (!visitedMasses.includes(mass.massNumber)) { // dont double count the mass acceleration due to multiple rope segments that make up the same rope
-                        if (ropeSegment.pullsStraightUpOn(mass)) {
-                            EQN.addTerm(1, `a_m${mass.massNumber}`);
-                            visitedMasses.push(mass.massNumber);
-                        }
-                        else if (ropeSegment.pullsStraightDownOn(mass)) {
-                            EQN.addTerm(-1, `a_m${mass.massNumber}`);
-                            visitedMasses.push(mass.massNumber);
-                        }
-                    }
-                }
-            }
-        }
-        EQNs.push(EQN);
-    }
-    //filling out the A matrix
-    for (let i = 0; i < dim; i++) {
-        for (let j = 0; j < dim; j++) {
-            A.set(i, j, (_a = EQNs[i].coeffDict[x[j]]) !== null && _a !== void 0 ? _a : 0); //if the qeuaiton sdeosnt have the unknown, set its coeff to 0 in the A matrix
-        }
-        b.push(EQNs[i].b);
-        //console.log(EQNs[i].toString()) //DEBUG
-    }
-    //solving the system
-    let b_vector = ml_matrix_1.Matrix.columnVector(b);
-    let solved_x = ml_matrix_1.solve(A, b_vector);
-    for (let i = 0; i < dim; i++) {
-        //console.log(`${x[i]} = ${solved_x.get(i, 0)}`) //DEBUG
-    }
-    /*for(let unknown of x){
-        for(let object in [...getMasses(), ...getPulleys()]){
-        }
-    }*/
-    //console.dir(x) //DEBUG
-    //console.dir([...getMasses(), ...getPulleys()]) //DEBUG
-    // getMasses().filter(item => massNumber === num)[0]
-}
-document.getElementById("calculate-button").onclick = calculate;
-function animate() {
-}
-document.getElementById("animate").onclick = animate;
+init();

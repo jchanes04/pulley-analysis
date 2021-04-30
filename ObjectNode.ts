@@ -61,9 +61,9 @@ class ObjectNode {
             this.parent?.move(pos, this.id)
             let objectsToMove = []
             if (this.parent?.constructor.name === "Pulley") {
-                if (this.id === (<Pulley>this.parent.rightNode.id) {
-                    objectsToMove.push({id: this.parent.centerNode.id, pos: pos})
-                    objectsToMove.push({id: this.parent.leftNode.id, pos: {x: pos.x - 2*this.parent.radius, y: pos.y}})
+                if (this.id === ((<Pulley>this.parent).rightNode.id)) {
+                    objectsToMove.push({id: (<Pulley>this.parent).centerNode.id, pos: pos})
+                    objectsToMove.push({id: (<Pulley>this.parent).leftNode.id, pos: {x: pos.x - 2*(<Pulley>this.parent).radius, y: pos.y}})
                 }
             }
         }
