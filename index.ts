@@ -5,36 +5,34 @@ export type Position = {
 
 export type SimulationObject = RopeSegment | Pulley | Mass
 
-type IDList = Record<string, Pulley>
+type IDList = Record<string, Pulley | RopeSegment | Mass>
 
 var snapDistance = 30
 
 const workspace: HTMLElement = document.getElementById("workspace")!
 const gridCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("grid-canvas")!
 const mainCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("main-canvas")!
-mainCanvas.width = 10000
-mainCanvas.height = 6000
 const ctx = mainCanvas.getContext("2d")!
 export {ctx}
-var clickMode: "f" | "s" = 'f' //'f' for first click     's' for second click
-var firstClickPos: Position
 var status: "editing" | "animating" = "editing"
 var globalElementList: IDList = {}
 
 import Pulley = require('./Pulley')
 import RopeSegment = require('./RopeSegment')
 import Mass = require('./Mass')
-import ObjectNode = require('./ObjectNode')
+// import ObjectNode = require('./ObjectNode')
 import Equation = require('./Equation')
 import _, { create, first, invert } from "underscore"
 import { Matrix, solve } from 'ml-matrix'
 
-export {Pulley, RopeSegment, Mass, ObjectNode}
+export {Pulley, RopeSegment, Mass}
 
-globalElementList["12345"] = new Pulley({x: 2000, y: 2000}, 600)
-
-var scalingHtmlElement: HTMLElement
-var ropeLabel: HTMLElement
+let workspaceResizeObserver = new ResizeObserver(entries => {
+    mainCanvas.width = workspace.clientWidth
+    mainCanvas.height = workspace.clientHeight
+    drawGrid()
+})
+workspaceResizeObserver.observe(workspace)
 
 // import CommandManager = require('./CommandManager')
 
@@ -56,11 +54,23 @@ document.onkeyup = (e) => {
     }
 }
 
-(function drawGrid() {
-    gridCanvas.width = 1300
-    gridCanvas.height = 900
-    gridCanvas.style.width = 1300 + 'px'
-    gridCanvas.style.height = 900 + 'px'
+var radios: Array<HTMLInputElement> = <Array<HTMLInputElement>>[...document.querySelectorAll('input[name="selected-object"]')]
+radios.forEach(radio => {
+    radio.onchange = () => {
+        let selectedTool = (<HTMLInputElement>document.querySelector('input[name="selected-object"]:checked')).value
+        if (["mass", "pulley", "rope-segment"].includes(selectedTool)) {
+            workspace.style.cursor = "crosshair"
+        } else {
+            workspace.style.cursor = "default"
+        }
+    }
+})
+
+var functionsToRender: Function[] = []
+
+function drawGrid() {
+    gridCanvas.width = workspace.clientWidth
+    gridCanvas.height = workspace.clientHeight
     let ctx: CanvasRenderingContext2D = gridCanvas.getContext("2d")!
 
     for (let i = 0; i < gridCanvas.width; i += snapDistance) {
@@ -76,7 +86,7 @@ document.onkeyup = (e) => {
         ctx.strokeStyle = "#e0ddd3"
         ctx.stroke()
     }
-})()
+}
 
 var lastFrame: number = 0
 var fpsTime: number = 0
@@ -84,10 +94,10 @@ var frameCount: number = 0
 var fps: number = 0
 
 function init() {
+    drawGrid()
+
     mainCanvas.onmousedown = mainMousedownHandler
-    mainCanvas.onmouseup = mainMouseupHandler
-    mainCanvas.onmousemove = mainMousemoveHandler
-    mainCanvas.onmouseout = mainMouseoutHandler
+    mainCanvas.onmousemove = trackMousePosition
 
     main(0)
 }
@@ -128,27 +138,128 @@ function updateFps(dt: number) {
 function render() {
     drawWorkspace()
 
+    let nodesToRender: Position[] = []
     for (let id in globalElementList) {
-        if (status === "editing" || !(globalElementList[id] instanceof ObjectNode)) globalElementList[id].render()
+        if (status === "editing") {
+            let nodePositions = globalElementList[id].render()
+            for (let position of nodePositions) {
+                if (!nodesToRender.some(p => (p.x === position.x && p.y === position.y))) {
+                    nodesToRender.push(position)
+                }
+            }
+        }
     }
-    ctx.stroke()
+
+    for (let nodePos of nodesToRender) {
+        ctx.beginPath()
+        ctx.lineWidth = 3
+        ctx.strokeStyle = "#000"
+        if (getDist(currentMousePos, nodePos) < 20) {
+            ctx.fillStyle = "lime"
+            currentMousePos = nodePos
+        } else {
+            ctx.fillStyle = "green"
+        }
+        ctx.arc(nodePos.x, nodePos.y, 5, 0, 2 * Math.PI)
+        ctx.fill()
+        ctx.stroke()
+    }
+
+    for (let func of functionsToRender) {
+        func()
+    }
 }
 
 function drawWorkspace() {
-    // ctx.fillStyle = "#303030"
-    // ctx.fillRect(0, 0, mainCanvas.width, 65)
-    // ctx.fillStyle = "#ffffff"
-    // ctx.font = "24px Verdana"
-    // ctx.fillText("Text text", 10, 25)
-    // ctx.fillStyle = "blue"
-    // ctx.font = "14px Arial"
-    // ctx.fillText("fps: " + fps, 10, 35)
+    ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height)
 }
 
-function mainMousedownHandler(event: MouseEvent) {}
-function mainMousemoveHandler(event: MouseEvent) {}
-function mainMouseoutHandler(event: MouseEvent) {}
-function mainMouseupHandler(event: MouseEvent) {}
+function mainMousedownHandler(event: MouseEvent) {
+    let selectedTool = (<HTMLInputElement>document.querySelector('input[name="selected-object"]:checked')).value
+    let inputtedMass = parseFloat((<HTMLInputElement>document.getElementById("mass-input")).value)
+    switch(selectedTool) {
+        case "pulley": {
+            let pos = {x: currentMousePos.x, y: currentMousePos.y}
+
+            function showPulleyPreview() {
+                ctx.beginPath()
+                ctx.lineWidth = 3
+                ctx.strokeStyle = "#AAA"
+                ctx.arc(pos.x, pos.y, getDist(pos, currentMousePos), 0, 2 * Math.PI)
+                ctx.stroke()
+            }
+            functionsToRender.push(showPulleyPreview)
+            
+            function removeListeners() {
+                workspace.removeEventListener("mouseup", removeListeners)
+
+                if (getDist(pos, currentMousePos) > 30) {
+                    let newPulley = new Pulley(pos, getDist(pos, currentMousePos))
+                    setID(newPulley)
+                }
+
+                functionsToRender = functionsToRender.filter(item => item !== showPulleyPreview)
+            }
+            workspace.addEventListener("mouseup", removeListeners)
+        }; break
+
+        case "mass": {
+            let pos = {x: currentMousePos.x, y: currentMousePos.y}
+
+            function showMassPreview() {
+                ctx.beginPath()
+                ctx.lineWidth = 3
+                ctx.strokeStyle = "#AAA"
+                ctx.rect(currentMousePos.x, currentMousePos.y, 2 * (pos.x - currentMousePos.x), 2 * (pos.y - currentMousePos.y))
+                ctx.stroke()
+            }
+            functionsToRender.push(showMassPreview)
+
+            function removeListeners() {
+                workspace.removeEventListener("mouseup", removeListeners)
+
+                if (getDist(pos, currentMousePos) > 30) {
+                    let newMass = new Mass(pos, {width: 2 * Math.abs(pos.x - currentMousePos.x), height: 2 * Math.abs(pos.y - currentMousePos.y)}, inputtedMass)
+                    setID(newMass)
+                }
+
+                functionsToRender = functionsToRender.filter(item => item !== showMassPreview)
+            }
+            workspace.addEventListener("mouseup", removeListeners)
+        }; break
+
+        case "rope-segment": {
+            let pos = {x: currentMousePos.x, y: currentMousePos.y}
+
+            function showRopeSegmentPreview() {
+                ctx.beginPath()
+                ctx.moveTo(pos.x, pos.y)
+                ctx.lineWidth = 3
+                ctx.strokeStyle = "#F99"
+                ctx.lineTo(currentMousePos.x, currentMousePos.y)
+                ctx.stroke()
+            }
+            functionsToRender.push(showRopeSegmentPreview)
+
+            function removeListeners() {
+                workspace.removeEventListener("mouseup", removeListeners)
+
+                if (getDist(pos, currentMousePos) > 30) {
+                    let newRopeSegment = new RopeSegment(pos, currentMousePos)
+                    setID(newRopeSegment)
+                }
+
+                functionsToRender = functionsToRender.filter(item => item !== showRopeSegmentPreview)
+            }
+            workspace.addEventListener("mouseup", removeListeners)
+        }; break
+    }
+}
+
+var currentMousePos: Position = {x: 0, y: 0}
+function trackMousePosition(e: MouseEvent) {
+    currentMousePos = getMousePos(mainCanvas, e)
+}
 
 function getMousePos(canvas: HTMLCanvasElement, e: MouseEvent) {
     var rect = canvas.getBoundingClientRect()
@@ -158,4 +269,17 @@ function getMousePos(canvas: HTMLCanvasElement, e: MouseEvent) {
     }
 }
 
+function getDist(pos1: Position, pos2: Position) {
+    return Math.sqrt((pos1.x - pos2.x)**2 + (pos1.y - pos2.y)**2)
+}
+
 init()
+
+function setID(element: SimulationObject) {
+    let id: string
+    do {
+        id = (Math.floor(Math.random() * 1000000)).toString() //generating a random ID from 0-999999
+    } while (id in globalElementList)
+    element.setID(id)
+    globalElementList[id] = element
+}

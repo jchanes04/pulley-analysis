@@ -28,29 +28,15 @@ class Pulley {
     }
     render() {
         index_1.ctx.beginPath();
-        index_1.ctx.lineWidth = 15;
+        index_1.ctx.lineWidth = 3;
         index_1.ctx.strokeStyle = "#000";
         index_1.ctx.arc(this.pos.x, this.pos.y, this.radius, 0, 2 * Math.PI);
         index_1.ctx.stroke();
-        index_1.ctx.beginPath();
-        index_1.ctx.arc(this.pos.x - this.radius, this.pos.y, 5, 0, 2 * Math.PI);
-        index_1.ctx.fillStyle = "green";
-        index_1.ctx.fill();
-        index_1.ctx.stroke();
-        index_1.ctx.beginPath();
-        index_1.ctx.arc(this.pos.x, this.pos.y, 5, 0, 2 * Math.PI);
-        index_1.ctx.fillStyle = "green";
-        index_1.ctx.fill();
-        index_1.ctx.stroke();
-        index_1.ctx.beginPath();
-        index_1.ctx.arc(this.pos.x + this.radius, this.pos.y, 5, 0, 2 * Math.PI);
-        index_1.ctx.fillStyle = "green";
-        index_1.ctx.fill();
-        index_1.ctx.stroke();
+        return [this.pos, { x: this.pos.x - this.radius, y: this.pos.y }, { x: this.pos.x + this.radius, y: this.pos.y }];
     }
     update(dt) {
-        this.vel += this.acc * dt;
         this.pos.y += this.vel * dt;
+        this.vel += this.acc * dt;
     }
     setID(id) {
         this.id = id;
@@ -59,37 +45,19 @@ class Pulley {
     fixPulley() {
         this.fixed = true;
     }
-    move(pos, nodeID) {
-        if (nodeID === this.rightNode.id) {
+    move(node, pos) {
+        if (node === "right") {
             this.pos = { x: pos.x - this.radius, y: pos.y };
-            // this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px'
-            // this.htmlElement.style.left = (pos.x - 1 - 2 * this.radius) + 'px'
-            // this.centerNode.move(this.pos, true)
-            // this.leftNode.move({x: pos.x - 2 * this.radius, y: pos.y}, true)
-            return [this.centerNode.pos, this.leftNode.pos];
         }
-        else if (nodeID === this.centerNode.id) {
+        else if (node === "center") {
             this.pos = pos;
-            // this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px'
-            // this.htmlElement.style.left = (pos.x - 1 - this.radius) + 'px'
-            this.leftNode.move({ x: pos.x - this.radius, y: pos.y }, true);
-            this.rightNode.move({ x: pos.x + this.radius, y: pos.y }, true);
         }
-        else if (nodeID === this.leftNode.id) {
+        else if (node === "left") {
             this.pos = { x: pos.x + this.radius, y: pos.y };
-            // this.htmlElement.style.top = (pos.y - 1 - this.radius) + 'px'
-            // this.htmlElement.style.left = (pos.x - 1) + 'px'
-            this.centerNode.move({ x: pos.x + this.radius, y: pos.y }, true);
-            this.rightNode.move({ x: pos.x + 2 * this.radius, y: pos.y }, true);
         }
     }
     setAcceleration(acc) {
         this.acc = acc;
-    }
-    delete() {
-        // this.htmlElement.remove()
-        // this.pulleyLabel.remove()
-        return [this.leftNode, this.rightNode, this.centerNode];
     }
 }
 module.exports = Pulley;

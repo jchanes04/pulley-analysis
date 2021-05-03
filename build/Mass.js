@@ -1,55 +1,33 @@
 "use strict";
-const ObjectNode = require("./ObjectNode");
+const index_1 = require("./index");
 class Mass {
-    constructor(pos, dimensions, mass, node) {
+    constructor(pos, dimensions, mass) {
         this.pos = pos;
         this.mass = mass;
         this.dimensions = dimensions;
-        this.acc = null;
-        if (node) {
-            this.centerNode = node;
-            node.setParent(this);
-        }
-        else {
-            this.centerNode = new ObjectNode(this, pos);
-        }
-        //display stuff
-        this.htmlElement = document.createElement("div");
-        this.htmlElement.classList.add('mass');
-        this.htmlElement.style.width = (dimensions.width - 2) + 'px';
-        this.htmlElement.style.height = (dimensions.width - 2) + 'px';
-        this.htmlElement.style.top = (pos.y - 1 - dimensions.height / 2) + 'px';
-        this.htmlElement.style.left = (pos.x - 1 - dimensions.width / 2) + 'px';
-        document.getElementById('workspace').appendChild(this.htmlElement);
-        //display the actual mass quantity (ex: "22 kg")
-        this.massLabel = document.createElement("div");
-        this.massLabel.classList.add("label");
-        this.massLabel.style.height = length + 'px';
-        this.massLabel.style.top = (pos.y + 0.125 * dimensions.height) + 'px';
-        this.massLabel.style.left = (pos.x - 20) + 'px';
-        this.massLabel.innerText = this.mass.toString() + " kg";
-        document.getElementById("workspace").appendChild(this.massLabel);
+        this.vel = 0;
+        this.acc = 0;
+    }
+    render() {
+        index_1.ctx.beginPath();
+        index_1.ctx.lineWidth = 3;
+        index_1.ctx.strokeStyle = "#000";
+        index_1.ctx.rect(this.pos.x - this.dimensions.width / 2, this.pos.y - this.dimensions.height / 2, this.dimensions.width, this.dimensions.height);
+        index_1.ctx.stroke();
+        return [this.pos];
+    }
+    update(dt) {
+        this.pos.y += this.vel * dt;
+        this.vel += this.acc * dt;
     }
     setID(id) {
         this.id = id;
-        this.htmlElement.dataset.ID = this.id;
     }
     move(pos) {
         this.pos = pos;
-        this.htmlElement.style.top = (pos.y - 1 - this.dimensions.height / 2) + 'px';
-        this.htmlElement.style.left = (pos.x - 1 - this.dimensions.width / 2) + 'px';
     }
     setAcceleration(acc) {
         this.acc = acc;
-    }
-    delete() {
-        this.htmlElement.remove();
-        this.massLabel.remove();
-        return [this.centerNode];
-    }
-    render() {
-        document.getElementById('workspace').appendChild(this.htmlElement);
-        document.getElementById("workspace").appendChild(this.massLabel);
     }
 }
 module.exports = Mass;

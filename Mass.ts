@@ -1,82 +1,51 @@
-type Position = {
-    x: number,
-    y: number
-}
-
-import ObjectNode = require('./ObjectNode')
+import {ctx, Position} from './index'
 
 interface Mass {
     id: string,
     pos: Position,
     mass: number,
-    acc: number | null,
+    vel: number,
+    acc: number,
     dimensions: {width: number, height: number},
     fixed: boolean,
     massNumber: number, //keeps track of the mass number (M1, M2, etc.)
-    centerNode: ObjectNode,
-    htmlElement: HTMLElement,
-    massLabel: HTMLElement
 }
 
 class Mass {
-    constructor(pos: Position, dimensions: { width: number, height: number }, mass: number, node?: ObjectNode) {
+    constructor(pos: Position, dimensions: { width: number, height: number }, mass: number) {
         this.pos = pos
         this.mass = mass
         this.dimensions = dimensions
 
-        this.acc = null
+        this.vel = 0
+        this.acc = 0
+    }
 
-        if (node) {
-            this.centerNode = node
-            node.setParent(this)
-        } else {
-            this.centerNode = new ObjectNode(this, pos)
-        }
+    render() {
+        ctx.beginPath()
+        ctx.lineWidth = 3
+        ctx.strokeStyle = "#000"
+        ctx.rect(this.pos.x - this.dimensions.width / 2, this.pos.y - this.dimensions.height / 2, this.dimensions.width, this.dimensions.height)
+        ctx.stroke()
 
-        //display stuff
-        this.htmlElement = document.createElement("div")
-        this.htmlElement.classList.add('mass')
-        this.htmlElement.style.width = (dimensions.width - 2) + 'px'
-        this.htmlElement.style.height = (dimensions.width - 2) + 'px'
-        this.htmlElement.style.top = (pos.y - 1 - dimensions.height / 2) + 'px'
-        this.htmlElement.style.left = (pos.x - 1 - dimensions.width / 2) + 'px'
-        document.getElementById('workspace')!.appendChild(this.htmlElement)
+        return [this.pos]
+    }
 
-        //display the actual mass quantity (ex: "22 kg")
-        this.massLabel = document.createElement("div")
-        this.massLabel.classList.add("label")
-        this.massLabel.style.height = length + 'px'
-        this.massLabel.style.top = (pos.y + 0.125 * dimensions.height) + 'px'
-        this.massLabel.style.left = (pos.x - 20) + 'px'
-        this.massLabel.innerText =  this.mass.toString() + " kg"
-        document.getElementById("workspace")!.appendChild(this.massLabel)
+    update(dt: number) {
+        this.pos.y += this.vel * dt
+        this.vel += this.acc * dt
     }
 
     setID(id: string) {
         this.id = id
-        this.htmlElement.dataset.ID = this.id
     }
 
     move(pos: Position) {
         this.pos = pos
-
-        this.htmlElement.style.top = (pos.y - 1 - this.dimensions.height / 2) + 'px'
-        this.htmlElement.style.left = (pos.x - 1 - this.dimensions.width / 2) + 'px'
     }
 
     setAcceleration(acc: number) {
         this.acc = acc
-    }
-
-    delete() {
-        this.htmlElement.remove()
-        this.massLabel.remove()
-        return [this.centerNode]
-    }
-
-    render() {
-        document.getElementById('workspace')!.appendChild(this.htmlElement)
-        document.getElementById("workspace")!.appendChild(this.massLabel)
     }
 }
 
