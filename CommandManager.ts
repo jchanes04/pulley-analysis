@@ -1,27 +1,20 @@
-type Position = {
-    x: number,
-    y: number
-}
+import {globalElementList, Position, SimulationObject, Pulley, Mass, RopeSegment} from './index'
 
-type SimulationObject = RopeSegment | Pulley | Mass
-
-type Edit = {
-    type: "create" | "delete" | "move",
+type MoveEdit = {
+    type: "move",
     target: SimulationObject,
-    data?: {
-        nodesToRender?: ObjectNode[],
-        oldPosition?: Position,
-        newPosition?: Position
-    }
+    oldPosition: Position,
+    newPosition: Position,
+    node: "left" | "right" | "center" | "start" | "end"
 }
-
-import Pulley = require('./Pulley')
-import RopeSegment = require('./RopeSegment')
-import Mass = require('./Mass')
-import ObjectNode = require('./ObjectNode')
+type CreateDeleteEdit = {
+    type: "create" | "delete",
+    target: SimulationObject
+}
+type Edit = MoveEdit | CreateDeleteEdit
 
 interface CommandManager {
-    editStack: (Edit[])[],
+    editStack: (Edit[])[],  // array of edit arrays, so multiple edits done at once can also be undone/redone at once
     undoStack: (Edit[])[]
 }
 
@@ -31,52 +24,49 @@ class CommandManager {
         this.undoStack = [] // edits that have already been undone and can be redone
     }
 
-    add(edit: Edit) {
-        this.editStack.unshift(edit)
+    add(...edits: Edit[]) {
+        this.editStack.unshift(edits)
         this.undoStack = []
     }
 
     undo() {
         if (this.editStack.length > 0) {
-            let undone = this.editStack.shift()!
+            let undoneEdits = this.editStack.shift()!
+            let insertToStack: Edit[] = []
+            for (let edit of undoneEdits) {
+                switch (edit.type) {
+                    case "create": {
+                        let createdElement = edit.target
 
-            switch (undone.type) {
-                case "create": {
-                    let createdElement = globalElementList[undone.objectIDs[0]]
+                        delete globalElementList[createdElement.id]
 
-                    if (!(createdElement instanceof ObjectNode)) {
-                        let nodesToDelete = createdElement.delete()
-                        delete globalElementList[undone.objectIDs[0]]
-                        nodesToDelete.forEach(node => {
-                            node.delete()
-                            delete globalElementList[node.id]
-                        })
-                        this.undoStack.unshift({
+                        insertToStack.push({
                             type: "create",
-                            objectIDs: undone.objectIDs,
-                            data: {
-                                objectData: createdElement,
-                                nodesToRender: nodesToDelete
-                            }
+                            target: createdElement
+                        })
+                    }; break
+                    case "move": {
+                        let movedElement = edit.target
+
+                        movedElement.move(edit.node, edit.oldPosition)
+                        
+                        insertToStack.push({
+                            type: "move",
+                            target: movedElement,
+                            oldPosition: edit.oldPosition,
+                            newPosition: edit.newPosition,
+                            node: edit.node
+                        })
+                    }; break
+                    case "delete": {
+                        let deletedElement = edit.target
+                        delete globalElementList[deletedElement.id]
+
+                        insertToStack.push({
+                            type: "delete",
+                            target: deletedElement
                         })
                     }
-                    break
-                }
-                case "move": {
-                    let movedNodes = undone.objectIDs.map(id => globalElementList[id])
-
-                    movedNodes.forEach(node => {
-                        (<ObjectNode>node).move(undone.data!.oldPosition!, false)
-                    })
-                    this.undoStack.unshift({
-                        type: "move",
-                        objectIDs: undone.objectIDs,
-                        data: {
-                            oldPosition: undone.data?.oldPosition,
-                            newPosition: undone.data?.newPosition
-                        }
-                    })
-                    break
                 }
             }
         }
@@ -84,41 +74,26 @@ class CommandManager {
 
     redo() {
         if (this.undoStack.length > 0) {
-            let redone = this.undoStack.shift()!
+            let redoneEdits = this.undoStack.shift()!
+            let insertToStack: Edit[] = []
+            for (let edit of redoneEdits) {
+                switch(edit.type) {
+                    case "create": {
+                        let createdElement = edit.target
 
-            switch (redone.type) {
-                case "create": {
-                    redone.data?.objectData?.render()
-                    redone.data?.nodesToRender?.forEach(node => {
-                        node.render()
-                    })
-                    globalElementList[redone.objectIDs[0]] = redone.data?.objectData!
-                    redone.data?.nodesToRender?.forEach(node => {
-                        globalElementList[node.id] = node
-                    })
-                    this.editStack.unshift({
-                        type: "create",
-                        objectIDs: redone.objectIDs
-                    })
-                    break
-                }
-                case "move": {
-                    let movedNodes = redone.objectIDs.map(id => globalElementList[id])
+                        globalElementList[createdElement.id] = createdElement
 
-                    movedNodes.forEach(node => {
-                        (<ObjectNode>node).move(redone.data!.newPosition!, false)
-                    })
-                    this.editStack.unshift({
-                        type: "move",
-                        objectIDs: redone.objectIDs,
-                        data: {
-                            oldPosition: redone.data?.oldPosition,
-                            newPosition: redone.data?.newPosition
-                        }
-                    })
-                    break
+                        insertToStack.push({
+                            type: "create",
+                            target: createdElement
+                        })
+                    }; break
+                    case "move": {
+
+                    }
                 }
             }
+            
         }
     }
 }
