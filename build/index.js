@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Mass = exports.RopeSegment = exports.Pulley = exports.ctx = void 0;
+exports.Mass = exports.RopeSegment = exports.Pulley = exports.globalElementList = exports.ctx = void 0;
 var snapDistance = 20;
 const workspace = document.getElementById("workspace");
 const gridCanvas = document.getElementById("grid-canvas");
@@ -9,6 +9,7 @@ const ctx = mainCanvas.getContext("2d");
 exports.ctx = ctx;
 var status = "editing";
 var globalElementList = {};
+exports.globalElementList = globalElementList;
 const Pulley = require("./Pulley");
 exports.Pulley = Pulley;
 const RopeSegment = require("./RopeSegment");
@@ -21,20 +22,20 @@ let workspaceResizeObserver = new ResizeObserver(entries => {
     drawGrid();
 });
 workspaceResizeObserver.observe(workspace);
-// import CommandManager = require('./CommandManager')
-// const editManager = new CommandManager()
+const CommandManager = require("./CommandManager");
+const editManager = new CommandManager();
 document.getElementById("undo").onclick = () => {
-    // editManager.undo()
+    editManager.undo();
 };
 document.getElementById("redo").onclick = () => {
-    // editManager.redo()
+    editManager.redo();
 };
 document.onkeyup = (e) => {
     if (e.ctrlKey && e.code === "KeyZ") {
-        // editManager.undo()
+        editManager.undo();
     }
     else if (e.ctrlKey && e.code === "KeyY") {
-        // editManager.redo()
+        editManager.redo();
     }
 };
 var radios = [...document.querySelectorAll('input[name="selected-object"]')];
@@ -160,6 +161,10 @@ function mainMousedownHandler(event) {
                     if (getDist(pos, currentMousePos) > snapDistance) {
                         let newPulley = new Pulley(getSnappedPos(pos), getSnappedDist(pos, currentMousePos));
                         setID(newPulley);
+                        editManager.add({
+                            type: "create",
+                            target: newPulley
+                        });
                     }
                     functionsToRender = functionsToRender.filter(item => item !== showPulleyPreview);
                 }
@@ -185,6 +190,10 @@ function mainMousedownHandler(event) {
                     if (getDist(pos, currentMousePos) > 0.73 * snapDistance) {
                         let newMass = new Mass(getSnappedPos(pos), { width: 2 * Math.abs(getSnappedPos(pos).x - getSnappedPos(currentMousePos).x), height: 2 * Math.abs(getSnappedPos(pos).y - getSnappedPos(currentMousePos).y) }, inputtedMass);
                         setID(newMass);
+                        editManager.add({
+                            type: "create",
+                            target: newMass
+                        });
                     }
                     functionsToRender = functionsToRender.filter(item => item !== showMassPreview);
                 }
@@ -211,6 +220,10 @@ function mainMousedownHandler(event) {
                     if (Math.abs(currentMousePos.y - pos.y) > snapDistance) {
                         let newRopeSegment = new RopeSegment(getSnappedPos(pos), getSnappedPos(currentMousePos));
                         setID(newRopeSegment);
+                        editManager.add({
+                            type: "create",
+                            target: newRopeSegment
+                        });
                     }
                     functionsToRender = functionsToRender.filter(item => item !== showRopeSegmentPreview);
                 }

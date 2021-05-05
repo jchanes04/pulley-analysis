@@ -23,8 +23,10 @@ class Mass {
     setID(id) {
         this.id = id;
     }
-    move(pos) {
-        this.pos = pos;
+    move(node, pos) {
+        if (node === "center") {
+            this.pos = pos;
+        }
     }
     setAcceleration(acc) {
         this.acc = acc;

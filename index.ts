@@ -34,23 +34,23 @@ let workspaceResizeObserver = new ResizeObserver(entries => {
 })
 workspaceResizeObserver.observe(workspace)
 
-// import CommandManager = require('./CommandManager')
+import CommandManager = require('./CommandManager')
 
-// const editManager = new CommandManager()
+const editManager = new CommandManager()
 
 document.getElementById("undo")!.onclick = () => {
-    // editManager.undo()
+    editManager.undo()
 }
 
 document.getElementById("redo")!.onclick = () => {
-    // editManager.redo()
+    editManager.redo()
 }
 
 document.onkeyup = (e) => {
     if (e.ctrlKey && e.code === "KeyZ") {
-        // editManager.undo()
+        editManager.undo()
     } else if (e.ctrlKey && e.code === "KeyY") {
-        // editManager.redo()
+        editManager.redo()
     }
 }
 
@@ -67,6 +67,7 @@ radios.forEach(radio => {
 })
 
 var functionsToRender: Function[] = []
+var fixedNodes: Position[] = []
 
 function drawGrid() {
     gridCanvas.width = workspace.clientWidth
@@ -152,17 +153,21 @@ function render() {
 
     for (let nodePos of nodesToRender) {
         ctx.beginPath()
-        ctx.lineWidth = 3
-        ctx.strokeStyle = "#000"
-        if (getDist(currentMousePos, nodePos) < snapDistance) {
-            ctx.fillStyle = "lime"
-            currentMousePos = nodePos
+        if (!fixedNodes.some(n => n.x === nodePos.x && n.y === nodePos.y)) {
+            ctx.lineWidth = 3
+            ctx.strokeStyle = "#000"
+            if (getDist(currentMousePos, nodePos) < snapDistance) {
+                ctx.fillStyle = "lime"
+                currentMousePos = nodePos
+            } else {
+                ctx.fillStyle = "green"
+            }
+            ctx.arc(nodePos.x, nodePos.y, 5, 0, 2 * Math.PI)
+            ctx.fill()
+            ctx.stroke()
         } else {
-            ctx.fillStyle = "green"
+            
         }
-        ctx.arc(nodePos.x, nodePos.y, 5, 0, 2 * Math.PI)
-        ctx.fill()
-        ctx.stroke()
     }
 
     for (let func of functionsToRender) {
@@ -198,6 +203,10 @@ function mainMousedownHandler(event: MouseEvent) {
                 if (getDist(pos, currentMousePos) > snapDistance) {
                     let newPulley = new Pulley(getSnappedPos(pos), getSnappedDist(pos, currentMousePos))
                     setID(newPulley)
+                    editManager.add({
+                        type: "create",
+                        target: newPulley
+                    })
                 }
 
                 functionsToRender = functionsToRender.filter(item => item !== showPulleyPreview)
@@ -225,6 +234,10 @@ function mainMousedownHandler(event: MouseEvent) {
                 if (getDist(pos, currentMousePos) > 0.73 * snapDistance) {
                     let newMass = new Mass(getSnappedPos(pos), {width: 2 * Math.abs(getSnappedPos(pos).x - getSnappedPos(currentMousePos).x), height: 2 * Math.abs(getSnappedPos(pos).y - getSnappedPos(currentMousePos).y)}, inputtedMass)
                     setID(newMass)
+                    editManager.add({
+                        type: "create",
+                        target: newMass
+                    })
                 }
 
                 functionsToRender = functionsToRender.filter(item => item !== showMassPreview)
@@ -253,11 +266,26 @@ function mainMousedownHandler(event: MouseEvent) {
                 if (Math.abs(currentMousePos.y - pos.y) > snapDistance) {
                     let newRopeSegment = new RopeSegment(getSnappedPos(pos), getSnappedPos(currentMousePos))
                     setID(newRopeSegment)
+                    editManager.add({
+                        type: "create",
+                        target: newRopeSegment
+                    })
                 }
 
                 functionsToRender = functionsToRender.filter(item => item !== showRopeSegmentPreview)
             }
             workspace.addEventListener("mouseup", removeListeners)
+        }; break
+
+        case "fix-node": {
+            if (fixedNodes.some(nodePosition => nodePosition.x === getSnappedPos(currentMousePos).x && nodePosition.y === getSnappedPos(currentMousePos).y)) {
+                fixedNodes === fixedNodes.filter(nodePosition => { return !(
+                    nodePosition.x === getSnappedPos(currentMousePos).x
+                    && nodePosition.y === getSnappedPos(currentMousePos).y
+                )})
+            } else {
+                fixedNodes.push(getSnappedPos(currentMousePos))
+            }
         }; break
     }
 }

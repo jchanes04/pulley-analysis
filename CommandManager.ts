@@ -48,7 +48,7 @@ class CommandManager {
                     case "move": {
                         let movedElement = edit.target
 
-                        movedElement.move(edit.node, edit.oldPosition)
+                        movedElement.move(<never>edit.node, edit.oldPosition)
                         
                         insertToStack.push({
                             type: "move",
@@ -69,6 +69,7 @@ class CommandManager {
                     }
                 }
             }
+            this.undoStack.unshift(insertToStack)
         }
     }
 
@@ -93,7 +94,7 @@ class CommandManager {
                     }
                 }
             }
-            
+            this.editStack.unshift(insertToStack)
         }
     }
 }
