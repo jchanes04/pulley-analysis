@@ -13,9 +13,9 @@ const workspace: HTMLElement = document.getElementById("workspace")!
 const gridCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("grid-canvas")!
 const mainCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("main-canvas")!
 const ctx = mainCanvas.getContext("2d")!
-export {ctx}
 var status: "editing" | "animating" = "editing"
 var globalElementList: IDList = {}
+export {ctx, globalElementList}
 
 import Pulley = require('./Pulley')
 import RopeSegment = require('./RopeSegment')

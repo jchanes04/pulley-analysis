@@ -40,8 +40,10 @@ class Mass {
         this.id = id
     }
 
-    move(pos: Position) {
-        this.pos = pos
+    move(node: "center", pos: Position) {
+        if (node === "center") {
+            this.pos = pos
+        }
     }
 
     setAcceleration(acc: number) {
