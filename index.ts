@@ -7,7 +7,7 @@ export type SimulationObject = RopeSegment | Pulley | Mass
 
 type IDList = Record<string, Pulley | RopeSegment | Mass>
 
-var snapDistance = 30
+var snapDistance = 20
 
 const workspace: HTMLElement = document.getElementById("workspace")!
 const gridCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("grid-canvas")!
@@ -154,7 +154,7 @@ function render() {
         ctx.beginPath()
         ctx.lineWidth = 3
         ctx.strokeStyle = "#000"
-        if (getDist(currentMousePos, nodePos) < 20) {
+        if (getDist(currentMousePos, nodePos) < snapDistance) {
             ctx.fillStyle = "lime"
             currentMousePos = nodePos
         } else {
@@ -182,19 +182,21 @@ function mainMousedownHandler(event: MouseEvent) {
             let pos = {x: currentMousePos.x, y: currentMousePos.y}
 
             function showPulleyPreview() {
-                ctx.beginPath()
-                ctx.lineWidth = 3
-                ctx.strokeStyle = "#AAA"
-                ctx.arc(pos.x, pos.y, getDist(pos, currentMousePos), 0, 2 * Math.PI)
-                ctx.stroke()
+                if (getDist(pos, currentMousePos) > snapDistance) {
+                    ctx.beginPath()
+                    ctx.lineWidth = 3
+                    ctx.strokeStyle = "#AAA"
+                    ctx.arc(getSnappedPos(pos).x, getSnappedPos(pos).y, getSnappedDist(pos, currentMousePos), 0, 2 * Math.PI)
+                    ctx.stroke()
+                }
             }
             functionsToRender.push(showPulleyPreview)
             
             function removeListeners() {
                 workspace.removeEventListener("mouseup", removeListeners)
 
-                if (getDist(pos, currentMousePos) > 30) {
-                    let newPulley = new Pulley(pos, getDist(pos, currentMousePos))
+                if (getDist(pos, currentMousePos) > snapDistance) {
+                    let newPulley = new Pulley(getSnappedPos(pos), getSnappedDist(pos, currentMousePos))
                     setID(newPulley)
                 }
 
@@ -207,19 +209,21 @@ function mainMousedownHandler(event: MouseEvent) {
             let pos = {x: currentMousePos.x, y: currentMousePos.y}
 
             function showMassPreview() {
-                ctx.beginPath()
-                ctx.lineWidth = 3
-                ctx.strokeStyle = "#AAA"
-                ctx.rect(currentMousePos.x, currentMousePos.y, 2 * (pos.x - currentMousePos.x), 2 * (pos.y - currentMousePos.y))
-                ctx.stroke()
+                if (getDist(pos, currentMousePos) > 0.73 * snapDistance) {
+                    ctx.beginPath()
+                    ctx.lineWidth = 3
+                    ctx.strokeStyle = "#AAA"
+                    ctx.rect(getSnappedPos(currentMousePos).x, getSnappedPos(currentMousePos).y, 2 * (getSnappedPos(pos).x - getSnappedPos(currentMousePos).x), 2 * (getSnappedPos(pos).y - getSnappedPos(currentMousePos).y))
+                    ctx.stroke()
+                }
             }
             functionsToRender.push(showMassPreview)
 
             function removeListeners() {
                 workspace.removeEventListener("mouseup", removeListeners)
 
-                if (getDist(pos, currentMousePos) > 30) {
-                    let newMass = new Mass(pos, {width: 2 * Math.abs(pos.x - currentMousePos.x), height: 2 * Math.abs(pos.y - currentMousePos.y)}, inputtedMass)
+                if (getDist(pos, currentMousePos) > 0.73 * snapDistance) {
+                    let newMass = new Mass(getSnappedPos(pos), {width: 2 * Math.abs(getSnappedPos(pos).x - getSnappedPos(currentMousePos).x), height: 2 * Math.abs(getSnappedPos(pos).y - getSnappedPos(currentMousePos).y)}, inputtedMass)
                     setID(newMass)
                 }
 
@@ -232,20 +236,22 @@ function mainMousedownHandler(event: MouseEvent) {
             let pos = {x: currentMousePos.x, y: currentMousePos.y}
 
             function showRopeSegmentPreview() {
-                ctx.beginPath()
-                ctx.moveTo(pos.x, pos.y)
-                ctx.lineWidth = 3
-                ctx.strokeStyle = "#F99"
-                ctx.lineTo(currentMousePos.x, currentMousePos.y)
-                ctx.stroke()
+                if (Math.abs(currentMousePos.y - pos.y) > snapDistance) {
+                    ctx.beginPath()
+                    ctx.moveTo(getSnappedPos(pos).x, getSnappedPos(pos).y)
+                    ctx.lineWidth = 3
+                    ctx.strokeStyle = "#F99"
+                    ctx.lineTo(getSnappedPos(currentMousePos).x, getSnappedPos(currentMousePos).y)
+                    ctx.stroke()
+                }
             }
             functionsToRender.push(showRopeSegmentPreview)
 
             function removeListeners() {
                 workspace.removeEventListener("mouseup", removeListeners)
 
-                if (getDist(pos, currentMousePos) > 30) {
-                    let newRopeSegment = new RopeSegment(pos, currentMousePos)
+                if (Math.abs(currentMousePos.y - pos.y) > snapDistance) {
+                    let newRopeSegment = new RopeSegment(getSnappedPos(pos), getSnappedPos(currentMousePos))
                     setID(newRopeSegment)
                 }
 
@@ -271,6 +277,16 @@ function getMousePos(canvas: HTMLCanvasElement, e: MouseEvent) {
 
 function getDist(pos1: Position, pos2: Position) {
     return Math.sqrt((pos1.x - pos2.x)**2 + (pos1.y - pos2.y)**2)
+}
+
+function getSnappedDist(pos1: Position, pos2: Position) {
+    return Math.round(Math.sqrt((pos1.x - pos2.x)**2 + (pos1.y - pos2.y)**2) / snapDistance) * snapDistance
+}
+
+function getSnappedPos(pos: Position) {
+    let newX = Math.round(pos.x / snapDistance) * snapDistance
+    let newY = Math.round(pos.y / snapDistance) * snapDistance
+    return {x: newX, y: newY}
 }
 
 init()
