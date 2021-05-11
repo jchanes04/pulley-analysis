@@ -28,7 +28,7 @@ class Mass {
         ctx.rect(this.pos.x - this.dimensions.width / 2, this.pos.y - this.dimensions.height / 2, this.dimensions.width, this.dimensions.height)
         ctx.stroke()
 
-        return [this.pos]
+        return [this.pos]   // return positions of nodes to be rendered
     }
 
     update(dt: number) {

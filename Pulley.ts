@@ -9,16 +9,10 @@ interface Pulley {
     acc: number,
     fixed: boolean,
     pulleyNumber: number,
-    // leftNode: ObjectNode,
-    // rightNode: ObjectNode,
-    // centerNode: ObjectNode
 }
 class Pulley {
     constructor(pos: Position, radius: number, objectOptions?: { mass?: number, isFixed?: boolean }) {
         this.pos = pos
-        // this.leftNode = new ObjectNode(this, { x: pos.x - radius , y: pos.y })
-        // this.rightNode = new ObjectNode(this, { x: pos.x + radius, y: pos.y })
-        // this.centerNode = new ObjectNode(this, pos)
 
         this.mass = ((isNaN(objectOptions?.mass ?? NaN)) ? 0 : objectOptions?.mass) || 0
         this.radius = radius
@@ -34,6 +28,7 @@ class Pulley {
         ctx.arc(this.pos.x, this.pos.y, this.radius, 0, 2 * Math.PI)
         ctx.stroke()
 
+        // return positions of nodes that need to be rendered
         return [this.pos, {x: this.pos.x - this.radius, y: this.pos.y}, {x: this.pos.x + this.radius, y: this.pos.y}]
     }
 

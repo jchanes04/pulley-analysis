@@ -67,7 +67,7 @@ var nodesToRender: {pos: Position, parents: SimulationObject[]}[] = []  // set o
 var fixedNodes: Position[] = []     // set of all nodes that have been fixed, used to determine which icon to render
 
 function drawGrid() {   // draws the background grid for the workspace
-    gridCanvas.width = workspace.clientWidth
+    gridCanvas.width = workspace.clientWidth    // sets size equal to workspace size
     gridCanvas.height = workspace.clientHeight
     let ctx: CanvasRenderingContext2D = gridCanvas.getContext("2d")!
 
@@ -86,28 +86,28 @@ function drawGrid() {   // draws the background grid for the workspace
     }
 }
 
-var lastFrame: number = 0
-var fpsTime: number = 0
-var frameCount: number = 0
+var lastFrame: number = 0   // timestamp of the last frame
+var fpsTime: number = 0     // time since fps counter was last updated
+var frameCount: number = 0  // number of frames elapsed so far
 var fps: number = 0
 
 function init() {
     drawGrid()
 
-    mainCanvas.onmousedown = mainMousedownHandler
-    mainCanvas.onmousemove = trackMousePosition
+    mainCanvas.onmousedown = mainMousedownHandler   // handles clicks and drags
+    mainCanvas.onmousemove = trackMousePosition     // tracks current mouse position at all times
 
     main(0)
 }
 
 function main(currentFrame: number) {
-    window.requestAnimationFrame(main)
+    window.requestAnimationFrame(main)  // continue the render loop
 
     update(currentFrame)
     render()
 }
 
-function update(currentFrame: number) {
+function update(currentFrame: number) {     // updates the frames and the physics
     let dt = (currentFrame - lastFrame) / 1000
     lastFrame = currentFrame
     
@@ -135,16 +135,16 @@ function updateFps(dt: number) {
 
 const fixedNodeSVG = new Path2D("M 0 2.104 L 2.104 0 L 5 2.896 L 7.896 0 L 10 2.104 L 7.104 5 L 10 7.896 L 7.896 10 L 5 7.104 L 2.104 10 L 0 7.896 L 2.896 5 Z")      
 
-var nodeMousedOver: {pos: Position, parents: SimulationObject[]} | null = null
+var nodeMousedOver: {pos: Position, parents: SimulationObject[]} | null = null  // information on the node currently moused over
 
-function render() {
+function render() {     // called every frame, redraws elements in the workspace
     drawWorkspace()
 
-    nodesToRender = []
-    for (let id in globalElementList) {
+    nodesToRender = []  // list of all nodes that need to be rendered
+    for (let id in globalElementList) { // for every element in the workspace
         if (status === "editing") {
-            let nodePositions = globalElementList[id].render()
-            for (let position of nodePositions) {
+            let nodePositions = globalElementList[id].render()  // render returns an array of positions to place nodes at 
+            for (let position of nodePositions) {   // either add new position or update parents of existing position in the list
                 if (!nodesToRender.some(p => positionsEqual(p.pos, position))) {
                     nodesToRender.push({pos: position, parents: [globalElementList[id]]})
                 } else {
@@ -155,13 +155,13 @@ function render() {
         }
     }
 
-    nodeMousedOver = null
+    nodeMousedOver = null   // reset which node is moused over
     for (let node of nodesToRender) {
         ctx.beginPath()
-        if (!fixedNodes.some(n => positionsEqual(n, node.pos))) {
+        if (!fixedNodes.some(n => positionsEqual(n, node.pos))) {   // for all nodes that are not fixed
             ctx.lineWidth = 3
             ctx.strokeStyle = "#000"
-            if (getDist(currentMousePos, node.pos) < snapDistance) {
+            if (getDist(currentMousePos, node.pos) < snapDistance) {    // if moused over
                 ctx.fillStyle = "lime"
                 nodeMousedOver = {pos: node.pos, parents: [...node.parents]}
                 currentMousePos = node.pos
@@ -171,37 +171,39 @@ function render() {
             ctx.arc(node.pos.x, node.pos.y, 5, 0, 2 * Math.PI)
             ctx.fill()
             ctx.stroke()
-        } else {
-            if (getDist(currentMousePos, node.pos) < snapDistance) {
+        } else {    // for all nodes that are fixed
+            if (getDist(currentMousePos, node.pos) < snapDistance) {    // if moused over
                 ctx.fillStyle = "yellow"
                 nodeMousedOver = node
             } else {
                 ctx.fillStyle = "orange"
             }
-            ctx.translate(node.pos.x - 5, node.pos.y - 5)
+            ctx.translate(node.pos.x - 5, node.pos.y - 5)   // used to position the svg in the correct place
             ctx.fill(fixedNodeSVG)
             ctx.stroke()
             ctx.translate(-node.pos.x + 5, -node.pos.y + 5)
         }
     }
 
-    for (let func of functionsToRender) {
+    for (let func of functionsToRender) {   // call all functions in functionsToRender
         func()
     }
 }
 
-function drawWorkspace() {
+function drawWorkspace() {  // redraws a clean workspace
     ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height)
 }
 
-function mainMousedownHandler(event: MouseEvent) {
+function mainMousedownHandler(event: MouseEvent) {  // handles clicks/drags
     let selectedTool = (<HTMLInputElement>document.querySelector('input[name="selected-object"]:checked')).value
+    // which tool is currently selected
     let inputtedMass = parseFloat((<HTMLInputElement>document.getElementById("mass-input")).value)
+    // what the current mass input is
     switch(selectedTool) {
         case "pulley": {
             let pos = {x: currentMousePos.x, y: currentMousePos.y}
 
-            function showPulleyPreview() {
+            function showPulleyPreview() {  // have a grayed out preview size with the cursor movement
                 if (getDist(pos, currentMousePos) > snapDistance) {
                     ctx.beginPath()
                     ctx.lineWidth = 3
@@ -210,12 +212,12 @@ function mainMousedownHandler(event: MouseEvent) {
                     ctx.stroke()
                 }
             }
-            functionsToRender.push(showPulleyPreview)
+            functionsToRender.push(showPulleyPreview)   // add the function to get rendered every frame
             
-            function removeListeners() {
+            function removeListeners() {    // cleanup and inserting new element into the list
                 workspace.removeEventListener("mouseup", removeListeners)
 
-                if (getDist(pos, currentMousePos) > snapDistance) {
+                if (getDist(pos, currentMousePos) > snapDistance) { // dont create if it's too small
                     let newPulley = new Pulley(getSnappedPos(pos), getSnappedDist(pos, currentMousePos))
                     setID(newPulley)
                     editManager.add({
@@ -224,7 +226,7 @@ function mainMousedownHandler(event: MouseEvent) {
                     })
                 }
 
-                functionsToRender = functionsToRender.filter(item => item !== showPulleyPreview)
+                functionsToRender = functionsToRender.filter(item => item !== showPulleyPreview)    // remove preview rendering function
             }
             workspace.addEventListener("mouseup", removeListeners)
         }; break
@@ -232,7 +234,7 @@ function mainMousedownHandler(event: MouseEvent) {
         case "mass": {
             let pos = {x: currentMousePos.x, y: currentMousePos.y}
 
-            function showMassPreview() {
+            function showMassPreview() {    // have a grayed out preview size with the cursor movement
                 if (getDist(pos, currentMousePos) > 0.73 * snapDistance) {
                     ctx.beginPath()
                     ctx.lineWidth = 3
@@ -241,11 +243,12 @@ function mainMousedownHandler(event: MouseEvent) {
                     ctx.stroke()
                 }
             }
-            functionsToRender.push(showMassPreview)
+            functionsToRender.push(showMassPreview) // add the function to get rendered every frame
 
-            function removeListeners() {
+            function removeListeners() {    // cleanup and inserting new element into the list
                 workspace.removeEventListener("mouseup", removeListeners)
 
+                // dont create if its too small
                 if (getDist(pos, currentMousePos) > 0.73 * snapDistance && getSnappedPos(pos).x - getSnappedPos(currentMousePos).x !== 0 && getSnappedPos(pos).y - getSnappedPos(currentMousePos).y) {
                     let newMass = new Mass(getSnappedPos(pos), {width: 2 * Math.abs(getSnappedPos(pos).x - getSnappedPos(currentMousePos).x), height: 2 * Math.abs(getSnappedPos(pos).y - getSnappedPos(currentMousePos).y)}, inputtedMass)
                     setID(newMass)
@@ -255,7 +258,7 @@ function mainMousedownHandler(event: MouseEvent) {
                     })
                 }
 
-                functionsToRender = functionsToRender.filter(item => item !== showMassPreview)
+                functionsToRender = functionsToRender.filter(item => item !== showMassPreview)  // remove preview rendering function
             }
             workspace.addEventListener("mouseup", removeListeners)
         }; break
@@ -263,7 +266,7 @@ function mainMousedownHandler(event: MouseEvent) {
         case "rope-segment": {
             let pos = {x: currentMousePos.x, y: currentMousePos.y}
 
-            function showRopeSegmentPreview() {
+            function showRopeSegmentPreview() { // have a grayed out preview size with the cursor movement
                 if (Math.abs(currentMousePos.y - pos.y) > snapDistance) {
                     ctx.beginPath()
                     ctx.moveTo(getSnappedPos(pos).x, getSnappedPos(pos).y)
@@ -273,12 +276,12 @@ function mainMousedownHandler(event: MouseEvent) {
                     ctx.stroke()
                 }
             }
-            functionsToRender.push(showRopeSegmentPreview)
+            functionsToRender.push(showRopeSegmentPreview)  // add the function to get rendered every frame
 
-            function removeListeners() {
+            function removeListeners() {    // cleanup and inserting new element into the list
                 workspace.removeEventListener("mouseup", removeListeners)
 
-                if (Math.abs(currentMousePos.y - pos.y) > snapDistance) {
+                if (Math.abs(currentMousePos.y - pos.y) > snapDistance) {   // dont create if its's too small
                     let newRopeSegment = new RopeSegment(getSnappedPos(pos), getSnappedPos(currentMousePos))
                     setID(newRopeSegment)
                     editManager.add({
@@ -287,12 +290,12 @@ function mainMousedownHandler(event: MouseEvent) {
                     })
                 }
 
-                functionsToRender = functionsToRender.filter(item => item !== showRopeSegmentPreview)
+                functionsToRender = functionsToRender.filter(item => item !== showRopeSegmentPreview)   // remove preview rendering function
             }
             workspace.addEventListener("mouseup", removeListeners)
         }; break
 
-        case "fix-node": {
+        case "fix-node": {  // add or remove node to/from the list of fixed nodes
             if (fixedNodes.some(nodePosition => positionsEqual(nodePosition, getSnappedPos(currentMousePos)))) {
                 fixedNodes = fixedNodes.filter(nodePosition => !positionsEqual(nodePosition, getSnappedPos(currentMousePos)))
             } else {
@@ -302,12 +305,15 @@ function mainMousedownHandler(event: MouseEvent) {
         }; break
 
         case "move": {
-            if (nodeMousedOver !== null) {
+            if (nodeMousedOver !== null) {  // there is a node being moused over
+                /*  movements of multiple elements connected to the same node have to be batched, 
+                    as well as the functions that render previews */
                 let removeListenerFunctions: Function[] = []
                 let moveEdits: any = []
-                nodeMousedOver.parents.forEach(p => {
-                    delete globalElementList[p.id]
+                nodeMousedOver.parents.forEach(p => {   // for every element connected to node
+                    delete globalElementList[p.id]  // remove it from the list temporarily (stop rendering the element in its current position)
                     if (p instanceof Pulley) {
+                        // determine which node is being moved
                         var pulleyNodePosition : "left" | "right" | "center" = "center"
                         if (positionsEqual(currentMousePos, {x: p.pos.x - p.radius, y: p.pos.y})) {
                             pulleyNodePosition = "left"
@@ -347,6 +353,7 @@ function mainMousedownHandler(event: MouseEvent) {
                             node: pulleyNodePosition
                         })
                     } else if (p instanceof RopeSegment) {
+                        // determine which node is being moved
                         var ropeNodePosition: "start" | "end" = positionsEqual(currentMousePos, p.startPos) ? "start" : "end"
 
                         function showMovePreview() {
@@ -411,9 +418,10 @@ function mainMousedownHandler(event: MouseEvent) {
                     }
                 })
 
+                // when the user finishes moving elements
                 workspace.addEventListener("mouseup", () => {
                     editManager.add(...moveEdits)
-                    removeListenerFunctions.forEach(f => f())
+                    removeListenerFunctions.forEach(f => f())   // call all cleanup functions
 
                     moveEdits = []
                     removeListenerFunctions = []

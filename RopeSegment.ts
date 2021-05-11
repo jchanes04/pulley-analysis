@@ -23,7 +23,7 @@ class RopeSegment {
         ctx.lineTo(this.endPos.x, this.endPos.y)
         ctx.stroke()
 
-        return [this.startPos, this.endPos]
+        return [this.startPos, this.endPos] // return positions of nodes to be rendered
     }
 
     update() {
