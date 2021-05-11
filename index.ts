@@ -7,46 +7,42 @@ export type SimulationObject = RopeSegment | Pulley | Mass
 
 type IDList = Record<string, Pulley | RopeSegment | Mass>
 
-var snapDistance = 20
+export var snapDistance = 20
 
 const workspace: HTMLElement = document.getElementById("workspace")!
 const gridCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("grid-canvas")!
 const mainCanvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("main-canvas")!
-const ctx = mainCanvas.getContext("2d")!
+export const ctx = mainCanvas.getContext("2d")!
 var status: "editing" | "animating" = "editing"
-var globalElementList: IDList = {}
-export {ctx, globalElementList}
+export var globalElementList: IDList = {}   // used to store references to all elements currently in the workspace
 
-import Pulley = require('./Pulley')
-import RopeSegment = require('./RopeSegment')
-import Mass = require('./Mass')
-// import ObjectNode = require('./ObjectNode')
+export import Pulley = require('./Pulley')
+export import RopeSegment = require('./RopeSegment')
+export import Mass = require('./Mass')
 import Equation = require('./Equation')
 import _, { create, first, invert } from "underscore"
 import { Matrix, solve } from 'ml-matrix'
-
-export {Pulley, RopeSegment, Mass}
 
 let workspaceResizeObserver = new ResizeObserver(entries => {
     mainCanvas.width = workspace.clientWidth
     mainCanvas.height = workspace.clientHeight
     drawGrid()
 })
-workspaceResizeObserver.observe(workspace)
+workspaceResizeObserver.observe(workspace)  // redraw the grid and rezise the canvas if the user changes the size of the container
 
 import CommandManager = require('./CommandManager')
 
-const editManager = new CommandManager()
+const editManager = new CommandManager()    // used to keep track of edits and undo/redo them
 
-document.getElementById("undo")!.onclick = () => {
+document.getElementById("undo")!.onclick = () => {  // undo button
     editManager.undo()
 }
 
-document.getElementById("redo")!.onclick = () => {
+document.getElementById("redo")!.onclick = () => {  // redo button
     editManager.redo()
 }
 
-document.onkeyup = (e) => {
+document.onkeyup = (e) => {     // undo/redo shortcuts
     if (e.ctrlKey && e.code === "KeyZ") {
         editManager.undo()
     } else if (e.ctrlKey && e.code === "KeyY") {
@@ -56,7 +52,7 @@ document.onkeyup = (e) => {
 
 var radios: Array<HTMLInputElement> = <Array<HTMLInputElement>>[...document.querySelectorAll('input[name="selected-object"]')]
 radios.forEach(radio => {
-    radio.onchange = () => {
+    radio.onchange = () => {    // change the crosshair when a different tool is selected
         let selectedTool = (<HTMLInputElement>document.querySelector('input[name="selected-object"]:checked')).value
         if (["mass", "pulley", "rope-segment"].includes(selectedTool)) {
             workspace.style.cursor = "crosshair"
@@ -66,10 +62,11 @@ radios.forEach(radio => {
     }
 })
 
-var functionsToRender: Function[] = []
-var fixedNodes: Position[] = []
+var functionsToRender: Function[] = []  // set of functions to run when rendering the workspace, mostly used for preview outlines of elements
+var nodesToRender: {pos: Position, parents: SimulationObject[]}[] = []  // set of all object nodes to render and which elements they are shared between
+var fixedNodes: Position[] = []     // set of all nodes that have been fixed, used to determine which icon to render
 
-function drawGrid() {
+function drawGrid() {   // draws the background grid for the workspace
     gridCanvas.width = workspace.clientWidth
     gridCanvas.height = workspace.clientHeight
     let ctx: CanvasRenderingContext2D = gridCanvas.getContext("2d")!
@@ -136,37 +133,55 @@ function updateFps(dt: number) {
     frameCount++
 }
 
+const fixedNodeSVG = new Path2D("M 0 2.104 L 2.104 0 L 5 2.896 L 7.896 0 L 10 2.104 L 7.104 5 L 10 7.896 L 7.896 10 L 5 7.104 L 2.104 10 L 0 7.896 L 2.896 5 Z")      
+
+var nodeMousedOver: {pos: Position, parents: SimulationObject[]} | null = null
+
 function render() {
     drawWorkspace()
 
-    let nodesToRender: Position[] = []
+    nodesToRender = []
     for (let id in globalElementList) {
         if (status === "editing") {
             let nodePositions = globalElementList[id].render()
             for (let position of nodePositions) {
-                if (!nodesToRender.some(p => (p.x === position.x && p.y === position.y))) {
-                    nodesToRender.push(position)
+                if (!nodesToRender.some(p => positionsEqual(p.pos, position))) {
+                    nodesToRender.push({pos: position, parents: [globalElementList[id]]})
+                } else {
+                    let item = nodesToRender.find(x => positionsEqual(x.pos, position))
+                    item!.parents.push(globalElementList[id])
                 }
             }
         }
     }
 
-    for (let nodePos of nodesToRender) {
+    nodeMousedOver = null
+    for (let node of nodesToRender) {
         ctx.beginPath()
-        if (!fixedNodes.some(n => n.x === nodePos.x && n.y === nodePos.y)) {
+        if (!fixedNodes.some(n => positionsEqual(n, node.pos))) {
             ctx.lineWidth = 3
             ctx.strokeStyle = "#000"
-            if (getDist(currentMousePos, nodePos) < snapDistance) {
+            if (getDist(currentMousePos, node.pos) < snapDistance) {
                 ctx.fillStyle = "lime"
-                currentMousePos = nodePos
+                nodeMousedOver = {pos: node.pos, parents: [...node.parents]}
+                currentMousePos = node.pos
             } else {
                 ctx.fillStyle = "green"
             }
-            ctx.arc(nodePos.x, nodePos.y, 5, 0, 2 * Math.PI)
+            ctx.arc(node.pos.x, node.pos.y, 5, 0, 2 * Math.PI)
             ctx.fill()
             ctx.stroke()
         } else {
-            
+            if (getDist(currentMousePos, node.pos) < snapDistance) {
+                ctx.fillStyle = "yellow"
+                nodeMousedOver = node
+            } else {
+                ctx.fillStyle = "orange"
+            }
+            ctx.translate(node.pos.x - 5, node.pos.y - 5)
+            ctx.fill(fixedNodeSVG)
+            ctx.stroke()
+            ctx.translate(-node.pos.x + 5, -node.pos.y + 5)
         }
     }
 
@@ -231,7 +246,7 @@ function mainMousedownHandler(event: MouseEvent) {
             function removeListeners() {
                 workspace.removeEventListener("mouseup", removeListeners)
 
-                if (getDist(pos, currentMousePos) > 0.73 * snapDistance) {
+                if (getDist(pos, currentMousePos) > 0.73 * snapDistance && getSnappedPos(pos).x - getSnappedPos(currentMousePos).x !== 0 && getSnappedPos(pos).y - getSnappedPos(currentMousePos).y) {
                     let newMass = new Mass(getSnappedPos(pos), {width: 2 * Math.abs(getSnappedPos(pos).x - getSnappedPos(currentMousePos).x), height: 2 * Math.abs(getSnappedPos(pos).y - getSnappedPos(currentMousePos).y)}, inputtedMass)
                     setID(newMass)
                     editManager.add({
@@ -278,13 +293,131 @@ function mainMousedownHandler(event: MouseEvent) {
         }; break
 
         case "fix-node": {
-            if (fixedNodes.some(nodePosition => nodePosition.x === getSnappedPos(currentMousePos).x && nodePosition.y === getSnappedPos(currentMousePos).y)) {
-                fixedNodes === fixedNodes.filter(nodePosition => { return !(
-                    nodePosition.x === getSnappedPos(currentMousePos).x
-                    && nodePosition.y === getSnappedPos(currentMousePos).y
-                )})
+            if (fixedNodes.some(nodePosition => positionsEqual(nodePosition, getSnappedPos(currentMousePos)))) {
+                fixedNodes = fixedNodes.filter(nodePosition => !positionsEqual(nodePosition, getSnappedPos(currentMousePos)))
             } else {
                 fixedNodes.push(getSnappedPos(currentMousePos))
+                
+            }
+        }; break
+
+        case "move": {
+            if (nodeMousedOver !== null) {
+                let removeListenerFunctions: Function[] = []
+                let moveEdits: any = []
+                nodeMousedOver.parents.forEach(p => {
+                    delete globalElementList[p.id]
+                    if (p instanceof Pulley) {
+                        var pulleyNodePosition : "left" | "right" | "center" = "center"
+                        if (positionsEqual(currentMousePos, {x: p.pos.x - p.radius, y: p.pos.y})) {
+                            pulleyNodePosition = "left"
+                        } else if (positionsEqual(currentMousePos, {x: p.pos.x + p.radius, y: p.pos.y})) {
+                            pulleyNodePosition = "right"
+                        }
+
+                        function showMovePreview() {
+                            ctx.beginPath()
+                            ctx.strokeStyle = "#AAA"
+                            ctx.lineWidth = 3
+                            ctx.arc(
+                                currentMousePos.x + (pulleyNodePosition === "left" ? (<Pulley>p).radius : (pulleyNodePosition === "right" ? -(<Pulley>p).radius : 0)),
+                                currentMousePos.y, 
+                                (<Pulley>p).radius, 
+                                0, 
+                                2 * Math.PI
+                            )
+                            ctx.stroke()
+                        }
+
+                        functionsToRender.push(showMovePreview)
+
+                        function removeListeners() {
+                            p.move(<never>pulleyNodePosition, getSnappedPos(currentMousePos))
+                            globalElementList[p.id] = p
+
+                            functionsToRender = functionsToRender.filter(item => item !== showMovePreview)
+                        }
+
+                        removeListenerFunctions.push(removeListeners)
+                        moveEdits.push({
+                            type: "move",
+                            target: p,
+                            oldPosition: {x: (<Pulley>p).pos.x, y: (<Pulley>p).pos.y},
+                            newPosition: getSnappedPos(currentMousePos),
+                            node: pulleyNodePosition
+                        })
+                    } else if (p instanceof RopeSegment) {
+                        var ropeNodePosition: "start" | "end" = positionsEqual(currentMousePos, p.startPos) ? "start" : "end"
+
+                        function showMovePreview() {
+                            let unmovingNode: "startPos" | "endPos" = ropeNodePosition === "start" ? "endPos" : "startPos"
+
+                            ctx.beginPath()
+                            ctx.moveTo((<RopeSegment>p)[unmovingNode].x, (<RopeSegment>p)[unmovingNode].y)
+                            ctx.lineWidth = 3
+                            ctx.strokeStyle = "#F99"
+                            ctx.lineTo(currentMousePos.x, currentMousePos.y)
+                            ctx.stroke()
+                        }
+
+                        functionsToRender.push(showMovePreview)
+
+                        function removeListeners() {
+                            p.move(<never>ropeNodePosition, getSnappedPos(currentMousePos))
+                            globalElementList[p.id] = p
+
+                            functionsToRender = functionsToRender.filter(item => item !== showMovePreview)
+                        }
+
+                        removeListenerFunctions.push(removeListeners)
+                        moveEdits.push({
+                            type: "move",
+                            target: p,
+                            oldPosition: {x: (<RopeSegment>p)[ropeNodePosition === "start" ? "startPos" : "endPos"].x, y: (<RopeSegment>p)[ropeNodePosition === "start" ? "startPos" : "endPos"].y},
+                            newPosition: getSnappedPos(currentMousePos),
+                            node: ropeNodePosition
+                        })
+                    } else if (p instanceof Mass) {
+                        function showMovePreview() {
+                            ctx.beginPath()
+                            ctx.lineWidth = 3
+                            ctx.strokeStyle = "#AAA"
+                            ctx.rect(
+                                currentMousePos.x - (<Mass>p).dimensions.width / 2,
+                                currentMousePos.y - (<Mass>p).dimensions.height / 2,
+                                (<Mass>p).dimensions.width,
+                                (<Mass>p).dimensions.height
+                            )
+                            ctx.stroke()
+                        }
+
+                        functionsToRender.push(showMovePreview)
+
+                        function removeListeners() {
+                            p.move(<never>"center", getSnappedPos(currentMousePos))
+                            globalElementList[p.id] = p
+
+                            functionsToRender = functionsToRender.filter(item => item !== showMovePreview)
+                        }
+
+                        removeListenerFunctions.push(removeListeners)
+                        moveEdits.push({
+                            type: "move",
+                            target: p,
+                            oldPosition: {x: p.pos.x, y: p.pos.y},
+                            newPosition: getSnappedPos(currentMousePos),
+                            node: "center"
+                        })
+                    }
+                })
+
+                workspace.addEventListener("mouseup", () => {
+                    editManager.add(...moveEdits)
+                    removeListenerFunctions.forEach(f => f())
+
+                    moveEdits = []
+                    removeListenerFunctions = []
+                })
             }
         }; break
     }
@@ -326,4 +459,8 @@ function setID(element: SimulationObject) {
     } while (id in globalElementList)
     element.setID(id)
     globalElementList[id] = element
+}
+
+function positionsEqual(pos1: Position, pos2: Position) {
+    return (pos1.x === pos2.x && pos1.y === pos2.y)
 }

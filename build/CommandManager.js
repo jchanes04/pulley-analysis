@@ -71,6 +71,15 @@ class CommandManager {
                         ;
                         break;
                     case "move": {
+                        let movedElement = edit.target;
+                        movedElement.move(edit.node, edit.oldPosition);
+                        insertToStack.push({
+                            type: "move",
+                            target: movedElement,
+                            newPosition: edit.newPosition,
+                            oldPosition: edit.oldPosition,
+                            node: edit.node
+                        });
                     }
                 }
             }

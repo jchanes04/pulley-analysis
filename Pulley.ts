@@ -50,7 +50,7 @@ class Pulley {
         this.fixed = true
     }
 
-    move(node: "left" | "right" | "center",pos: Position) {
+    move(node: "left" | "right" | "center", pos: Position) {
         if (node === "right") {
             this.pos = {x: pos.x - this.radius, y: pos.y}
         } else if (node === "center") {
