@@ -1,6 +1,7 @@
-import {ctx, Position} from './index'
+import { Position } from '../index'
+import { generateID } from '../utility'
 
-interface Pulley {
+export default interface Pulley {
     id: string,
     pos: Position,
     mass: number,
@@ -10,8 +11,9 @@ interface Pulley {
     fixed: boolean,
     pulleyNumber: number,
 }
-class Pulley {
+export default class Pulley {
     constructor(pos: Position, radius: number, objectOptions?: { mass?: number, isFixed?: boolean }) {
+        this.id = generateID()
         this.pos = pos
 
         this.mass = ((isNaN(objectOptions?.mass ?? NaN)) ? 0 : objectOptions?.mass) || 0
@@ -21,7 +23,7 @@ class Pulley {
         this.acc = 0
     }
 
-    render() {
+    render(ctx: CanvasRenderingContext2D) {
         ctx.beginPath()
         ctx.lineWidth = 3
         ctx.strokeStyle = "#000"
@@ -35,10 +37,6 @@ class Pulley {
     update(dt: number) {
         this.pos.y += this.vel * dt
         this.vel += this.acc * dt
-    }
-
-    setID(id: string) {
-        this.id = id
     }
 
     fixPulley(){
@@ -59,5 +57,3 @@ class Pulley {
         this.acc = acc
     }
 }
-
-export = Pulley

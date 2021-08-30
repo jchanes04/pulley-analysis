@@ -71,7 +71,5 @@
   },
   "exclude": [
     "indexTemp.ts",
-    "CommandManager.ts",
-    "ObjectNodes.ts"
   ]
 }

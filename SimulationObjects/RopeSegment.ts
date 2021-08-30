@@ -1,21 +1,23 @@
-import {ctx, Position} from './index'
+import { Position } from '../index'
 
 import _ from "underscore"
+import { generateID } from '../utility'
 
-interface RopeSegment {
+export default interface RopeSegment {
     id: string
     startPos: Position,
     endPos: Position,
     ropeNumber: number, //keeps track if the rope segment is part of greater rope with tension T_1, T_2, etc.
 }
 
-class RopeSegment {
+export default class RopeSegment {
     constructor(startPos: Position, endPos: Position) {
+        this.id = generateID()
         this.startPos = startPos
         this.endPos = endPos
     }
 
-    render() {
+    render(ctx: CanvasRenderingContext2D) {
         ctx.beginPath()
         ctx.moveTo(this.startPos.x, this.startPos.y)
         ctx.lineWidth = 3
@@ -30,10 +32,6 @@ class RopeSegment {
 
     }
 
-    setID(id: string) {
-        this.id = id
-    }
-
     move(node: "start" | "end", pos: Position) {
         if (node === "start") {
             this.startPos = pos
@@ -42,5 +40,3 @@ class RopeSegment {
         }
     }
 }
-
-export = RopeSegment

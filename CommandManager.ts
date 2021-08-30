@@ -1,24 +1,24 @@
-import {globalElementList, Position, SimulationObject, Pulley, Mass, RopeSegment} from './index'
+import {globalElementList, Position, SimulationObject} from './index'
 
-type MoveEdit = {
+export type MoveEdit = {
     type: "move",
     target: SimulationObject,
     oldPosition: Position,
     newPosition: Position,
     node: "left" | "right" | "center" | "start" | "end"
 }
-type CreateDeleteEdit = {
+export type CreateDeleteEdit = {
     type: "create" | "delete",
     target: SimulationObject
 }
-type Edit = MoveEdit | CreateDeleteEdit
+export type Edit = MoveEdit | CreateDeleteEdit
 
-interface CommandManager {
+export default interface CommandManager {
     editStack: (Edit[])[],  // array of edit arrays, so multiple edits done at once can also be undone/redone at once
     undoStack: (Edit[])[]
 }
 
-class CommandManager {
+export default class CommandManager {
     constructor() {
         this.editStack = [] // edits that have been made, can be undone
         this.undoStack = [] // edits that have already been undone and can be redone
@@ -108,5 +108,3 @@ class CommandManager {
         }
     }
 }
-
-export = CommandManager

@@ -1,6 +1,7 @@
-import {ctx, Position} from './index'
+import { Position } from '../index'
+import { generateID } from '../utility'
 
-interface Mass {
+export default interface Mass {
     id: string,
     pos: Position,
     mass: number,
@@ -11,8 +12,9 @@ interface Mass {
     massNumber: number, //keeps track of the mass number (M1, M2, etc.)
 }
 
-class Mass {
+export default class Mass {
     constructor(pos: Position, dimensions: { width: number, height: number }, mass: number) {
+        this.id = generateID()
         this.pos = pos
         this.mass = mass
         this.dimensions = dimensions
@@ -21,7 +23,7 @@ class Mass {
         this.acc = 0
     }
 
-    render() {
+    render(ctx: CanvasRenderingContext2D) {
         ctx.beginPath()
         ctx.lineWidth = 3
         ctx.strokeStyle = "#000"
@@ -36,10 +38,6 @@ class Mass {
         this.vel += this.acc * dt
     }
 
-    setID(id: string) {
-        this.id = id
-    }
-
     move(node: "center", pos: Position) {
         if (node === "center") {
             this.pos = pos
@@ -50,5 +48,3 @@ class Mass {
         this.acc = acc
     }
 }
-
-export = Mass
