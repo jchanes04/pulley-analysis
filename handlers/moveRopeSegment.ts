@@ -1,11 +1,11 @@
-import { Position } from ".."
+import { Position, SimulationObject } from ".."
 import { addElementToList, addFuncToRender, currentMousePos, removeFuncToRender, snapDistance } from "../canvas"
 import { MoveEdit } from "../CommandManager"
 import RopeSegment from "../SimulationObjects/RopeSegment"
 import { getSnappedPos, positionsEqual } from "../utility"
 
-export function moveRopeSegment(r: RopeSegment, mousePos: Position): [Function, MoveEdit] {
-    let ropeNodePosition: "start" | "end" = positionsEqual(mousePos, r.startPos) ? "start" : "end"
+export function moveRopeSegment(r: RopeSegment, nodeMousedOver: {pos: Position, parents: SimulationObject[]}): [Function, MoveEdit] {
+    let ropeNodePosition: "start" | "end" = positionsEqual(nodeMousedOver.pos, r.startPos) ? "start" : "end"
 
     function showMovePreview(ctx: CanvasRenderingContext2D) {
         let unmovingNode: "startPos" | "endPos" = ropeNodePosition === "start" ? "endPos" : "startPos"

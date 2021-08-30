@@ -84,13 +84,13 @@ export function mainMousedownHandler(workspace: HTMLElement, mousePos: Position,
             removeElementFromList(p.id)  // remove it from the list temporarily (stop rendering the element in its current position)
             if (p instanceof Pulley) {
                 // determine which node is being moved
-                let [removeListeners, moveEdit] = movePulley(p, mousePos)
+                let [removeListeners, moveEdit] = movePulley(p, nodeMousedOver)
 
                 removeListenerFunctions.push(removeListeners)
                 moveEdits.push(moveEdit)
             } else if (p instanceof RopeSegment) {
                 // determine which node is being moved
-                let [removeListeners, moveEdit] = moveRopeSegment(p, mousePos)
+                let [removeListeners, moveEdit] = moveRopeSegment(p, nodeMousedOver)
 
                 removeListenerFunctions.push(removeListeners)
                 moveEdits.push(moveEdit)
