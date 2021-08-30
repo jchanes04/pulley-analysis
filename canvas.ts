@@ -1,4 +1,5 @@
-import { getStatus, globalElementList, IDList, mainMousedownHandler, Position, SimulationObject } from "."
+import { getStatus, globalElementList, IDList, Position, SimulationObject } from "."
+import { mainMousedownHandler } from "./handlers/mainMousedownHandler"
 import { getDist, getMousePos, getSnappedPos, positionsEqual } from "./utility"
 
 export var snapDistance = 20
