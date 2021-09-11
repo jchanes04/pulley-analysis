@@ -16,6 +16,7 @@ export var globalElementList: IDList = {}   // used to store references to all e
 
 import CommandManager from './CommandManager'
 import { init, setCursor } from './canvas'
+import { calculate } from './handlers/calculate'
 
 export const editManager = new CommandManager()    // used to keep track of edits and undo/redo them
 
@@ -25,6 +26,11 @@ document.getElementById("undo")!.onclick = () => {  // undo button
 
 document.getElementById("redo")!.onclick = () => {  // redo button
     editManager.redo()
+}
+
+document.getElementById("calculate-button")!.onclick = () => {
+    console.log('a')
+    calculate(Object.values(globalElementList))
 }
 
 document.onkeyup = (e) => {     // undo/redo shortcuts

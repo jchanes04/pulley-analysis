@@ -16,6 +16,7 @@ export function mainMousedownHandler(workspace: HTMLElement, mousePos: Position,
     let selectedTool = (<HTMLInputElement>document.querySelector('input[name="selected-object"]:checked')).value
     // which tool is currently selected
     let inputtedMass = parseFloat((<HTMLInputElement>document.getElementById("mass-input")).value)
+    console.log(inputtedMass)
     // what the current mass input is
     if (selectedTool === "pulley") {
         createPulley(workspace, mousePos)

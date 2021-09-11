@@ -140,10 +140,10 @@ function render() {     // called every frame, redraws elements in the workspace
             } else {
                 ctx.fillStyle = "orange"
             }
-            ctx.translate(node.pos.x - 5, node.pos.y - 5)   // used to position the svg in the correct place
+            ctx.translate(node.pos.x - 7.5, node.pos.y - 7.5)   // used to position the svg in the correct place
             ctx.fill(fixedNodeSVG)
             ctx.stroke()
-            ctx.translate(-node.pos.x + 5, -node.pos.y + 5)
+            ctx.translate(-node.pos.x + 7.5, -node.pos.y + 7.5)
         }
     }
 
@@ -184,8 +184,12 @@ export function unfixPosition(pos: Position) {
     fixedNodes = fixedNodes.filter(nodePos => !positionsEqual(nodePos, pos))
 }
 
+export function fixedPositions(): Position[] {
+    return fixedNodes
+}
+
 export function currentMousePos(){
     return {x: currentMousePosition.x, y: currentMousePosition.y}
 }
 
-const fixedNodeSVG = new Path2D("M 0 2.104 L 2.104 0 L 5 2.896 L 7.896 0 L 10 2.104 L 7.104 5 L 10 7.896 L 7.896 10 L 5 7.104 L 2.104 10 L 0 7.896 L 2.896 5 Z")      
+const fixedNodeSVG = new Path2D("M 0 3.156 L 3.156 0 L 7.5 4.344 L 11.844 0 L 15 3.156 L 10.656 7.5 L 15 11.844 L 11.844 15 L 7.5 10.656 L 3.156 15 L 0 11.844 L 4.344 7.5 Z")      

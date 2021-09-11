@@ -9,7 +9,7 @@ export default interface Pulley {
     vel: number,
     acc: number,
     fixed: boolean,
-    pulleyNumber: number,
+    pulleyNumber: number | null,
 }
 export default class Pulley {
     constructor(pos: Position, radius: number, objectOptions?: { mass?: number, isFixed?: boolean }) {
@@ -21,6 +21,8 @@ export default class Pulley {
 
         this.vel = 0
         this.acc = 0
+
+        this.pulleyNumber = null
     }
 
     render(ctx: CanvasRenderingContext2D) {
@@ -31,7 +33,7 @@ export default class Pulley {
         ctx.stroke()
 
         // return positions of nodes that need to be rendered
-        return [this.pos, {x: this.pos.x - this.radius, y: this.pos.y}, {x: this.pos.x + this.radius, y: this.pos.y}]
+        return [this.pos, this.leftPos, this.rightPos]
     }
 
     update(dt: number) {
@@ -41,6 +43,10 @@ export default class Pulley {
 
     fixPulley(){
         this.fixed = true
+    }
+
+    unfixPulley() {
+        this.fixed = false
     }
 
     move(node: "left" | "right" | "center", pos: Position) {
@@ -53,7 +59,25 @@ export default class Pulley {
         }
     }
 
+    setPulleyNumber(num: number) {
+        this.pulleyNumber = num
+    }
+
     setAcceleration(acc: number) {
         this.acc = acc
+    }
+
+    get leftPos(): Position {
+        return {
+            x: this.pos.x - this.radius,
+            y: this.pos.y
+        }
+    }
+
+    get rightPos(): Position {
+        return {
+            x: this.pos.x + this.radius,
+            y: this.pos.y
+        }
     }
 }

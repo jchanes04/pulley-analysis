@@ -1,7 +1,7 @@
 //creates an equation of the type a_1*x_1 + a_2*x_2 + ... + a_n*x_n = b , where a_m is a coefficent and x_m is an unknown, and b is a constant
 interface Equation {
     coeffDict: Record<string, number>, //holds pairs of (unknown variable's coefficent, unknown variable's string representaion)
-    b: number
+    rhs: number
 }
 class Equation {
     constructor() {
@@ -10,6 +10,10 @@ class Equation {
 
     addTerm(coeff: number, unknown: string) {
         this.coeffDict[unknown] = coeff
+    }
+
+    setRhs(number: number) {
+        this.rhs = number
     }
 
     toString() {
@@ -31,7 +35,7 @@ class Equation {
                 str += ` - ${coeff === -1 ? "" : `${Math.abs(coeff)}*`}${unknown}`
             }
         }
-        str += ` = ${this.b}`
+        str += ` = ${this.rhs}`
         return (str)
     }
 }

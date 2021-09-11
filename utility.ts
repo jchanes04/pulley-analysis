@@ -1,4 +1,7 @@
 import { IDList, Position, SimulationObject } from "."
+import Mass from "./SimulationObjects/Mass"
+import Pulley from "./SimulationObjects/Pulley"
+import RopeSegment from "./SimulationObjects/RopeSegment"
 
 export function positionsEqual(pos1: Position, pos2: Position) {
     return (pos1.x === pos2.x && pos1.y === pos2.y)
@@ -34,4 +37,22 @@ export function generateID() {
     } while (IDsGenerated.includes(id))
     IDsGenerated.push(id)
     return id
+}
+
+export function getRopeSegments(elementList: SimulationObject[]): RopeSegment[] {
+    return <RopeSegment[]>(elementList.filter((item) => {
+        return (item instanceof RopeSegment)
+    }))
+}
+
+export function getPulleys(elementList: SimulationObject[]): Pulley[] {
+    return <Pulley[]>(elementList.filter((item) => {
+        return (item instanceof Pulley)
+    }))
+}
+
+export function getMasses(elementList: SimulationObject[]): Mass[] {
+    return <Mass[]>(elementList.filter((item) => {
+        return (item instanceof Mass)
+    }))
 }

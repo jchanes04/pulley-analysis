@@ -9,7 +9,7 @@ export default interface Mass {
     acc: number,
     dimensions: {width: number, height: number},
     fixed: boolean,
-    massNumber: number, //keeps track of the mass number (M1, M2, etc.)
+    massNumber: number | null, //keeps track of the mass number (M1, M2, etc.)
 }
 
 export default class Mass {
@@ -21,6 +21,8 @@ export default class Mass {
 
         this.vel = 0
         this.acc = 0
+
+        this.massNumber = null
     }
 
     render(ctx: CanvasRenderingContext2D) {
@@ -44,7 +46,19 @@ export default class Mass {
         }
     }
 
+    setMassNumber(num: number) {
+        this.massNumber = num
+    }
+
     setAcceleration(acc: number) {
         this.acc = acc
+    }
+
+    fixMass() {
+        this.fixed = true
+    }
+
+    unfixMass() {
+        this.fixed = false
     }
 }
