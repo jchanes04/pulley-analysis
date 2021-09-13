@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" xmlns:bx="https://boxy-svg.com">
+  <rect x="47" y="47" width="406" height="406" style="fill-rule: evenodd; paint-order: stroke; fill: rgba(216, 216, 216, 0); stroke-width: 21.4px; stroke: rgb(0, 0, 0);"/>
+  <path d="M 522.998 507.127 m -29.062 0 a 29.062 29.062 0 1 0 58.124 0 a 29.062 29.062 0 1 0 -58.124 0 Z M 522.998 507.127 m -24.121 0 a 24.121 24.121 0 0 1 48.242 0 a 24.121 24.121 0 0 1 -48.242 0 Z" style="" transform="matrix(1, -0.000036, 0.000036, 1, -273.016423, -257.108731)" bx:shape="ring 522.998 507.127 24.121 24.121 29.062 29.062 1@047c815f"/>
+  <circle style="fill: rgb(0, 128, 0);" cx="250" cy="250" r="24.1"/>
+</svg>
