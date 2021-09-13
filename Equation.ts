@@ -40,4 +40,4 @@ class Equation {
     }
 }
 
-export = Equation
+export default Equation

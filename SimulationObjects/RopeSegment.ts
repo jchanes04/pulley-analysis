@@ -1,6 +1,5 @@
 import { Position, Status } from '../index'
 
-import _ from "underscore"
 import { generateID, positionsEqual } from '../utility'
 import Pulley from './Pulley'
 import Mass from './Mass'
