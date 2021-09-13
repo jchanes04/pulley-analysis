@@ -10,8 +10,8 @@ export type Position = {
 export type SimulationObject = RopeSegment | Pulley | Mass
 
 export type IDList = Record<string, SimulationObject>
-
-var status: "editing" | "animating" = "editing"
+export type Status = "editing" | "animating" | "calculated"
+var status: Status = "editing"
 export var globalElementList: IDList = {}   // used to store references to all elements currently in the workspace
 
 import CommandManager from './CommandManager'
@@ -21,16 +21,21 @@ import { calculate } from './handlers/calculate'
 export const editManager = new CommandManager()    // used to keep track of edits and undo/redo them
 
 document.getElementById("undo")!.onclick = () => {  // undo button
+    setStatus("editing")
     editManager.undo()
 }
 
 document.getElementById("redo")!.onclick = () => {  // redo button
+    setStatus("editing")
     editManager.redo()
 }
 
 document.getElementById("calculate-button")!.onclick = () => {
-    console.log('a')
     calculate(Object.values(globalElementList))
+}
+
+document.getElementById("clear")!.onclick = () => {
+    globalElementList = {}
 }
 
 document.onkeyup = (e) => {     // undo/redo shortcuts
@@ -57,4 +62,8 @@ init()
 
 export function getStatus() {
     return status
+}
+
+export function setStatus(s: Status) {
+    status = s
 }

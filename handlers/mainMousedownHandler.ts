@@ -1,10 +1,10 @@
-import { editManager, Position, SimulationObject } from ".."
-import { fixPosition, positionFixed, removeElementFromList, snapDistance, unfixPosition } from "../canvas"
+import { editManager, Position, setStatus, SimulationObject } from ".."
+import { fixPosition, getNodeList, positionFixed, removeElementFromList, snapDistance, unfixPosition } from "../canvas"
 import { MoveEdit } from "../CommandManager"
 import Mass from "../SimulationObjects/Mass"
 import Pulley from "../SimulationObjects/Pulley"
 import RopeSegment from "../SimulationObjects/RopeSegment"
-import { getSnappedPos } from "../utility"
+import { getSnappedPos, positionsEqual } from "../utility"
 import { createMass } from "./createMass"
 import { createPulley } from "./createPulley"
 import { createRopeSegment } from "./createRopeSegment"
@@ -25,11 +25,14 @@ export function mainMousedownHandler(workspace: HTMLElement, mousePos: Position,
     } else if (selectedTool === "rope-segment") {
         createRopeSegment(workspace, mousePos)
     } else if (selectedTool === "fix-node") {  // add or remove node to/from the list of fixed nodes
-        if (positionFixed(mousePos)) {
-            unfixPosition(getSnappedPos(mousePos, snapDistance))
-        } else {
-            fixPosition(getSnappedPos(mousePos, snapDistance))
-            
+        let nodes = getNodeList()
+        if (nodes.some(n => positionsEqual(n.pos, getSnappedPos(mousePos, snapDistance)))) {
+            if (positionFixed(mousePos)) {
+                unfixPosition(getSnappedPos(mousePos, snapDistance))
+            } else {
+                fixPosition(getSnappedPos(mousePos, snapDistance))
+            }
+            setStatus("editing")
         }
     } else if (selectedTool === "move") {
         if (nodeMousedOver === null) return  // there is a node being moused over
@@ -61,6 +64,7 @@ export function mainMousedownHandler(workspace: HTMLElement, mousePos: Position,
 
         // when the user finishes moving elements
         workspace.addEventListener("mouseup", () => {
+            setStatus("editing")
             editManager.add(...moveEdits)
             removeListenerFunctions.forEach(f => f())   // call all cleanup functions
 

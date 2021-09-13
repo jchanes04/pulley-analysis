@@ -1,4 +1,4 @@
-import { Position } from '../index'
+import { Position, Status } from '../index'
 import { generateID } from '../utility'
 
 export default interface Pulley {
@@ -25,12 +25,18 @@ export default class Pulley {
         this.pulleyNumber = null
     }
 
-    render(ctx: CanvasRenderingContext2D) {
+    render(ctx: CanvasRenderingContext2D, status: Status) {
         ctx.beginPath()
         ctx.lineWidth = 3
         ctx.strokeStyle = "#000"
         ctx.arc(this.pos.x, this.pos.y, this.radius, 0, 2 * Math.PI)
         ctx.stroke()
+
+        if (status === "calculated" && this.pulleyNumber !== null) {
+            ctx.font = "bold 20px sans-serif"
+            ctx.fillStyle = "blue"
+            ctx.fillText("P" + this.pulleyNumber, this.pos.x + 5, this.pos.y + 25)
+        }
 
         // return positions of nodes that need to be rendered
         return [this.pos, this.leftPos, this.rightPos]

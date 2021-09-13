@@ -1,6 +1,6 @@
 import Matrix, { solve } from 'ml-matrix'
-import { SimulationObject } from '..'
-import { fixedPositions } from '../canvas'
+import { setStatus, SimulationObject } from '..'
+import { fixedPositions, fixPosition } from '../canvas'
 import Equation from '../Equation'
 import Mass from '../SimulationObjects/Mass'
 import Pulley from '../SimulationObjects/Pulley'
@@ -27,6 +27,24 @@ export function calculate(elementList: SimulationObject[]) {
             ropeNumber++
             segment.setRopeNumber(ropeNumber)
             setNumberOfLinkedSegments(segment, ropeNumber, ropeSegments, pulleys)
+        }
+
+        if (!(
+            masses.some(m => positionsEqual(m.pos, segment.startPos))
+            || pulleys.some(p => positionsEqual(p.pos, segment.startPos))
+            || pulleys.some(p => positionsEqual(p.leftPos, segment.startPos))
+            || pulleys.some(p => positionsEqual(p.rightPos, segment.startPos))
+        )) {
+            fixPosition(segment.startPos)
+        }
+
+        if (!(
+            masses.some(m => positionsEqual(m.pos, segment.endPos))
+            || pulleys.some(p => positionsEqual(p.pos, segment.endPos))
+            || pulleys.some(p => positionsEqual(p.leftPos, segment.endPos))
+            || pulleys.some(p => positionsEqual(p.rightPos, segment.endPos))
+        )) {
+            fixPosition(segment.endPos)
         }
     }
 
@@ -93,12 +111,10 @@ export function calculate(elementList: SimulationObject[]) {
         x.push(unknown)
 
         if (pulley.fixed) {
-            console.log('f')
             EQN.addTerm(1, unknown)
             EQN.setRhs(0)
             eqns.push(EQN)
         } else {
-            console.log('nf')
             EQN.addTerm(-pulley.mass, unknown)
             EQN.setRhs(-g * pulley.mass)
 
@@ -171,9 +187,6 @@ export function calculate(elementList: SimulationObject[]) {
         eqns.push(EQN)
     }
 
-    console.dir(eqns)
-    console.log("eqns length: " + eqns.length)
-    console.log(dim)
     for (let i = 0; i < dim; i++) {
         for (let j = 0; j < dim; j++) {
             A.set(i, j, eqns[i].coeffDict[x[j]] ?? 0)
@@ -181,12 +194,13 @@ export function calculate(elementList: SimulationObject[]) {
         b.push(eqns[i].rhs)
     }
 
-    console.log(A.toString())
     let b_vector = Matrix.columnVector(b)
-    console.log(b_vector.toString())
     let solved_x = solve(A, b_vector)
 
+    console.log(x.toString())
     console.log(solved_x.toString())
+    
+    setStatus("calculated")
 }
 
 function setNumberOfLinkedSegments(segment: RopeSegment, ropeNumber: number, ropeList: RopeSegment[], pulleyList: Pulley[]) {

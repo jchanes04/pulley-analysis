@@ -1,4 +1,4 @@
-import { Position } from '../index'
+import { Position, Status } from '../index'
 import { generateID } from '../utility'
 
 export default interface Mass {
@@ -25,12 +25,18 @@ export default class Mass {
         this.massNumber = null
     }
 
-    render(ctx: CanvasRenderingContext2D) {
+    render(ctx: CanvasRenderingContext2D, status: Status) {
         ctx.beginPath()
         ctx.lineWidth = 3
         ctx.strokeStyle = "#000"
         ctx.rect(this.pos.x - this.dimensions.width / 2, this.pos.y - this.dimensions.height / 2, this.dimensions.width, this.dimensions.height)
         ctx.stroke()
+
+        if (status === "calculated" && this.massNumber !== null) {
+            ctx.font = "bold 20px sans-serif"
+            ctx.fillStyle = "blue"
+            ctx.fillText("M" + this.massNumber, this.pos.x + 5, this.pos.y + 25)
+        }
 
         return [this.pos]   // return positions of nodes to be rendered
     }

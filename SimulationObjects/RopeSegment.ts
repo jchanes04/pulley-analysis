@@ -1,4 +1,4 @@
-import { Position } from '../index'
+import { Position, Status } from '../index'
 
 import _ from "underscore"
 import { generateID, positionsEqual } from '../utility'
@@ -20,13 +20,21 @@ export default class RopeSegment {
         this.ropeNumber = null
     }
 
-    render(ctx: CanvasRenderingContext2D) {
+    render(ctx: CanvasRenderingContext2D, status: Status) {
         ctx.beginPath()
         ctx.moveTo(this.startPos.x, this.startPos.y)
         ctx.lineWidth = 3
         ctx.strokeStyle = "red"
         ctx.lineTo(this.endPos.x, this.endPos.y)
         ctx.stroke()
+
+        if (status === "calculated" && this.ropeNumber !== null) {
+            ctx.font = "bold 20px sans-serif"
+            ctx.fillStyle = "blue"
+            let xPos = 0.5 * (this.startPos.x + this.endPos.x)
+            let yPos = 0.5 * (this.startPos.y + this.endPos.y)
+            ctx.fillText("T" + this.ropeNumber, xPos + 5, yPos)
+        }
 
         return [this.startPos, this.endPos] // return positions of nodes to be rendered
     }

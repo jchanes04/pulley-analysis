@@ -105,7 +105,17 @@ function render() {     // called every frame, redraws elements in the workspace
     nodesToRender = []  // list of all nodes that need to be rendered
     for (let id in globalElementList) { // for every element in the workspace
         if (getStatus() === "editing") {
-            let nodePositions = globalElementList[id].render(ctx)  // render returns an array of positions to place nodes at 
+            let nodePositions = globalElementList[id].render(ctx, getStatus())  // render returns an array of positions to place nodes at 
+            for (let position of nodePositions) {   // either add new position or update parents of existing position in the list
+                if (!nodesToRender.some(p => positionsEqual(p.pos, position))) {
+                    nodesToRender.push({pos: position, parents: [globalElementList[id]]})
+                } else {
+                    let item = nodesToRender.find(x => positionsEqual(x.pos, position))
+                    item!.parents.push(globalElementList[id])
+                }
+            }
+        } else if (getStatus() === "calculated") {
+            let nodePositions = globalElementList[id].render(ctx, getStatus())  // render returns an array of positions to place nodes at 
             for (let position of nodePositions) {   // either add new position or update parents of existing position in the list
                 if (!nodesToRender.some(p => positionsEqual(p.pos, position))) {
                     nodesToRender.push({pos: position, parents: [globalElementList[id]]})
@@ -190,6 +200,10 @@ export function fixedPositions(): Position[] {
 
 export function currentMousePos(){
     return {x: currentMousePosition.x, y: currentMousePosition.y}
+}
+
+export function getNodeList() {
+    return nodesToRender
 }
 
 const fixedNodeSVG = new Path2D("M 0 3.156 L 3.156 0 L 7.5 4.344 L 11.844 0 L 15 3.156 L 10.656 7.5 L 15 11.844 L 11.844 15 L 7.5 10.656 L 3.156 15 L 0 11.844 L 4.344 7.5 Z")      
